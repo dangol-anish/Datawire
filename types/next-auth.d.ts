@@ -6,6 +6,7 @@ declare module "next-auth" {
     user: {
       id: string;
       githubId?: string;
+      googleId?: string;
       name?: string | null;
       email?: string | null;
       image?: string | null;

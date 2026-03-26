@@ -9,10 +9,9 @@ type GithubIdentity = {
 };
 
 async function findExistingSupabaseAuthUserId(args: {
-  githubId: string;
   email?: string | null;
+  matchMetadata?: (meta: Record<string, unknown> | undefined) => boolean;
 }): Promise<string | null> {
-  const targetGithubId = args.githubId;
   const targetEmail = args.email?.toLowerCase() ?? null;
 
   const maxPages = 20;
@@ -31,12 +30,7 @@ async function findExistingSupabaseAuthUserId(args: {
       const userMetadata = (user as any)?.user_metadata as
         | Record<string, unknown>
         | undefined;
-      const githubId =
-        typeof userMetadata?.github_id === "string"
-          ? (userMetadata.github_id as string)
-          : null;
-
-      if (githubId === targetGithubId) return user.id;
+      if (args.matchMetadata?.(userMetadata)) return user.id;
 
       if (
         targetEmail &&
@@ -97,8 +91,8 @@ export async function getOrCreateSupabaseUserIdForGithub(
     }
 
     const existingAuthUserId = await findExistingSupabaseAuthUserId({
-      githubId,
       email: identity.email,
+      matchMetadata: (meta) => meta?.github_id === githubId,
     });
     if (existingAuthUserId) return existingAuthUserId;
   }
@@ -147,4 +141,56 @@ export async function getOrCreateSupabaseUserIdForGithub(
   }
 
   return supabaseUserId;
+}
+
+export async function getOrCreateSupabaseUserIdForOAuth(args: {
+  provider: "google";
+  providerAccountId: string;
+  email?: string | null;
+  name?: string | null;
+  image?: string | null;
+}): Promise<string> {
+  const provider = args.provider;
+  const providerAccountId = args.providerAccountId;
+  if (!providerAccountId) throw new Error("Missing OAuth providerAccountId");
+
+  const existing = await findExistingSupabaseAuthUserId({
+    email: args.email,
+    matchMetadata: (meta) =>
+      meta?.oauth_provider === provider && meta?.oauth_id === providerAccountId,
+  });
+  if (existing) return existing;
+
+  const resolvedEmail =
+    args.email ?? `${provider}-${providerAccountId}@users.noreply.local`;
+
+  const { data: created, error: createError } =
+    await supabaseServer.auth.admin.createUser({
+      email: resolvedEmail,
+      email_confirm: true,
+      user_metadata: {
+        provider,
+        oauth_provider: provider,
+        oauth_id: providerAccountId,
+        name: args.name ?? null,
+        avatar_url: args.image ?? null,
+      },
+    });
+
+  if (createError || !created?.user?.id) {
+    const msg = createError?.message ?? "no user id";
+    // If the email already exists, try to look it up again.
+    const mightAlreadyExist =
+      msg.toLowerCase().includes("already") || msg.toLowerCase().includes("exist");
+    if (mightAlreadyExist) {
+      const byEmail = await findExistingSupabaseAuthUserId({
+        email: resolvedEmail,
+      });
+      if (byEmail) return byEmail;
+    }
+
+    throw new Error(`Supabase Auth user create failed: ${msg}`);
+  }
+
+  return created.user.id;
 }
