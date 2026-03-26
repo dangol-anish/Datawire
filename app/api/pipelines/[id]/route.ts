@@ -20,13 +20,19 @@ export async function PATCH(
     return NextResponse.json({ error: "Missing graph_json" }, { status: 400 });
   }
 
-  const { error } = await supabaseServer
+  const { data, error } = await supabaseServer
     .from("pipelines")
     .update({ graph_json, updated_at: new Date().toISOString() })
-    .eq("id", params.id);
+    .eq("id", params.id)
+    .eq("user_id", session.user.id)
+    .select("id");
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  if (!data || data.length === 0) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
   return NextResponse.json({ ok: true });

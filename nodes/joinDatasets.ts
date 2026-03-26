@@ -4,7 +4,7 @@ export const joinDatasetsNode: NodeDefinition = {
   type: "JoinDatasets",
   label: "Join Datasets",
   description: "Join two tables on a key column",
-  color: "bg-orange-600",
+  color: "#ea580c",
   inputs: 2,
   outputs: 1,
   configSchema: [

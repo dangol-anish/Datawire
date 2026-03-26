@@ -122,7 +122,7 @@ export function EditorCanvas() {
           onDragOver={onDragOver}
           nodeTypes={nodeTypes}
           fitView
-          deleteKeyCode="Delete"
+          deleteKeyCode={["Backspace", "Delete"]}
           proOptions={{ hideAttribution: true }}
           className="bg-[#0d0f14]"
         >

@@ -4,7 +4,7 @@ export const groupByNode: NodeDefinition = {
   type: "GroupBy",
   label: "Group By",
   description: "Group rows and aggregate a column",
-  color: "bg-green-600",
+  color: "#16a34a",
   inputs: 1,
   outputs: 1,
   configSchema: [

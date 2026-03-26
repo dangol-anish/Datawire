@@ -18,6 +18,7 @@ export function PipelineNodeCard({ id, data, selected }: NodeProps<NodeData>) {
   const selectedNodeId = useGraphStore((s) => s.selectedNodeId);
   const result = useExecutionStore((s) => s.results[id]);
   const status = useExecutionStore((s) => s.nodeStatuses[id]);
+  const openResultsModal = useExecutionStore((s) => s.openResultsModal);
 
   const isSelected = selected || selectedNodeId === id;
   const hasError = result && isExecutionError(result);
@@ -89,19 +90,27 @@ export function PipelineNodeCard({ id, data, selected }: NodeProps<NodeData>) {
 
       {/* Execution result summary */}
       {hasResult && (
-        <div className="mx-3 mb-2 px-2 py-1 rounded-md bg-green-950/40 border border-green-900/30">
+        <button
+          className="nodrag mx-3 mb-2 px-2 py-1 rounded-md bg-green-950/40 border border-green-900/30 w-[calc(100%-24px)] text-left hover:bg-green-950/55 transition-colors"
+          onClick={() => openResultsModal(id)}
+          title="Open results"
+        >
           <p className="text-xs text-green-400">
             ✓ {(result as any).rows?.length ?? 0} rows ·{" "}
-            {(result as any).columns?.length ?? 0} cols
+            {(result as any).columns?.length ?? 0} cols · View
           </p>
-        </div>
+        </button>
       )}
       {hasError && (
-        <div className="mx-3 mb-2 px-2 py-1 rounded-md bg-red-950/40 border border-red-900/30">
+        <button
+          className="nodrag mx-3 mb-2 px-2 py-1 rounded-md bg-red-950/40 border border-red-900/30 w-[calc(100%-24px)] text-left hover:bg-red-950/55 transition-colors"
+          onClick={() => openResultsModal(id)}
+          title="Open error"
+        >
           <p className="text-xs text-red-400 truncate">
-            ✗ {(result as any).message}
+            ✗ {(result as any).message} · View
           </p>
-        </div>
+        </button>
       )}
       {status === "running" && (
         <div className="mx-3 mb-2 px-2 py-1 rounded-md bg-amber-950/40 border border-amber-900/30">

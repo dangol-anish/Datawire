@@ -8,11 +8,20 @@ interface ToolbarProps {
   pipelineName: string;
   onRun: () => void;
   onSave: () => void;
+  onDeleteSelected: () => void;
+  onClear: () => void;
 }
 
-export function EditorToolbar({ pipelineName, onRun, onSave }: ToolbarProps) {
+export function EditorToolbar({
+  pipelineName,
+  onRun,
+  onSave,
+  onDeleteSelected,
+  onClear,
+}: ToolbarProps) {
   const { undo, redo, history, future } = useGraphStore();
   const status = useExecutionStore((s) => s.pipelineStatus);
+  const selectedNodeId = useGraphStore((s) => s.selectedNodeId);
 
   const isRunning = status === "running";
 
@@ -125,6 +134,37 @@ export function EditorToolbar({ pipelineName, onRun, onSave }: ToolbarProps) {
           <path d="M4 1v3h4V1M3 6h6" strokeLinecap="round" />
         </svg>
         Save
+      </button>
+
+      {/* Delete node */}
+      <button
+        onClick={onDeleteSelected}
+        disabled={!selectedNodeId}
+        className="flex items-center gap-1.5 px-3 h-7 rounded-md text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 transition-colors disabled:opacity-40"
+        title="Delete selected node"
+      >
+        <svg
+          width="12"
+          height="12"
+          viewBox="0 0 12 12"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+        >
+          <path d="M2 3h8" strokeLinecap="round" />
+          <path d="M4.5 3V2.2A1.2 1.2 0 0 1 5.7 1h.6a1.2 1.2 0 0 1 1.2 1.2V3" />
+          <path d="M3.3 3.2l.4 7.5A1 1 0 0 0 4.7 11h2.6a1 1 0 0 0 1-.9l.4-7.5" />
+        </svg>
+        Delete
+      </button>
+
+      {/* Clear board */}
+      <button
+        onClick={onClear}
+        className="flex items-center gap-1.5 px-3 h-7 rounded-md text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 transition-colors"
+        title="Clear all nodes and edges"
+      >
+        Clear
       </button>
 
       {/* Run */}

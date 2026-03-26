@@ -5,7 +5,7 @@ export const fetchUrlNode: NodeDefinition = {
   type: "FetchURL",
   label: "Fetch URL",
   description: "Fetch CSV or JSON from a public URL",
-  color: "bg-blue-600",
+  color: "#2563eb",
   inputs: 0,
   outputs: 1,
   configSchema: [

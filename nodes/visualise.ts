@@ -4,7 +4,7 @@ export const visualiseNode: NodeDefinition = {
   type: "Visualise",
   label: "Visualise",
   description: "Render a chart from the data",
-  color: "bg-red-600",
+  color: "#dc2626",
   inputs: 1,
   outputs: 0,
   configSchema: [
@@ -12,7 +12,7 @@ export const visualiseNode: NodeDefinition = {
       key: "chartType",
       label: "Chart Type",
       type: "select",
-      options: ["bar", "line", "scatter"],
+      options: ["bar", "line", "pie"],
       required: true,
     },
     { key: "xColumn", label: "X Axis Column", type: "text", required: true },

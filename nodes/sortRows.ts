@@ -4,7 +4,7 @@ export const sortRowsNode: NodeDefinition = {
   type: "SortRows",
   label: "Sort Rows",
   description: "Sort rows by a column",
-  color: "bg-pink-600",
+  color: "#db2777",
   inputs: 1,
   outputs: 1,
   configSchema: [

@@ -6,13 +6,19 @@ import { useGraphStore } from "@/store/graphStore";
 import { NODE_REGISTRY } from "@/nodes/index";
 import type { ConfigField } from "@/types";
 import { useExecutionStore } from "@/store/executionStore";
-import { VisualiseChart } from "@/components/nodes/VisualiseChart";
 import { isExecutionError } from "@/types";
 
 export function NodeConfigSidebar() {
   const { selectedNodeId, nodes, updateNodeConfig, pushHistory } =
     useGraphStore();
   const node = nodes.find((n) => n.id === selectedNodeId);
+  const result = useExecutionStore((s) =>
+    selectedNodeId ? s.results[selectedNodeId] : undefined,
+  );
+  const nodeStatus = useExecutionStore((s) =>
+    selectedNodeId ? s.nodeStatuses[selectedNodeId] : "idle",
+  );
+  const openResultsModal = useExecutionStore((s) => s.openResultsModal);
 
   if (!node) {
     return (
@@ -146,14 +152,40 @@ export function NodeConfigSidebar() {
         )}
       </div>
 
-      {node.data.type === "Visualise" &&
-        (() => {
-          const result = useExecutionStore.getState().results[node.id];
-          if (result && !isExecutionError(result)) {
-            return <VisualiseChart data={result as any} config={config} />;
-          }
-          return null;
-        })()}
+      {/* Results access */}
+      <div className="px-4 py-3" style={{ borderTop: "1px solid #1e2330" }}>
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-xs font-semibold uppercase tracking-widest text-slate-600">
+            Results
+          </p>
+          <span className="text-xs text-slate-600">{nodeStatus}</span>
+        </div>
+
+        {result && isExecutionError(result) && (
+          <p className="text-xs text-red-400 truncate mb-2">
+            ✗ {result.message}
+          </p>
+        )}
+
+        {result && !isExecutionError(result) && (
+          <p className="text-xs text-green-400 mb-2">
+            ✓ {result.rows.length} rows · {result.columns.length} cols
+          </p>
+        )}
+
+        <button
+          onClick={() => selectedNodeId && openResultsModal(selectedNodeId)}
+          disabled={!result}
+          className="w-full h-8 rounded-md text-xs font-semibold disabled:opacity-40"
+          style={{
+            background: result ? "#6366f1" : "#1f2937",
+            color: "white",
+          }}
+          title={result ? "Open results" : "Run the pipeline to see results"}
+        >
+          Open Results
+        </button>
+      </div>
 
       {/* Node ID */}
       <div

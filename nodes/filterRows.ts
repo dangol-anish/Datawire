@@ -4,7 +4,7 @@ export const filterRowsNode: NodeDefinition = {
   type: "FilterRows",
   label: "Filter Rows",
   description: "Keep rows matching a condition",
-  color: "bg-yellow-600",
+  color: "#ca8a04",
   inputs: 1,
   outputs: 1,
   configSchema: [

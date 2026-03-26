@@ -16,6 +16,10 @@ interface ExecutionState {
   nodeStatuses: Record<string, NodeStatus>;
   pipelineStatus: PipelineStatus;
 
+  resultsModalNodeId: string | null;
+  openResultsModal: (nodeId: string) => void;
+  closeResultsModal: () => void;
+
   setResult: (nodeId: string, result: NodeResult) => void;
   setNodeStatus: (nodeId: string, status: NodeStatus) => void;
   setPipelineStatus: (status: PipelineStatus) => void;
@@ -27,6 +31,10 @@ export const useExecutionStore = create<ExecutionState>((set) => ({
   nodeStatuses: {},
   pipelineStatus: "idle",
 
+  resultsModalNodeId: null,
+  openResultsModal: (nodeId) => set({ resultsModalNodeId: nodeId }),
+  closeResultsModal: () => set({ resultsModalNodeId: null }),
+
   setResult: (nodeId, result) =>
     set((s) => ({ results: { ...s.results, [nodeId]: result } })),
 
@@ -35,5 +43,11 @@ export const useExecutionStore = create<ExecutionState>((set) => ({
 
   setPipelineStatus: (status) => set({ pipelineStatus: status }),
 
-  reset: () => set({ results: {}, nodeStatuses: {}, pipelineStatus: "idle" }),
+  reset: () =>
+    set({
+      results: {},
+      nodeStatuses: {},
+      pipelineStatus: "idle",
+      resultsModalNodeId: null,
+    }),
 }));

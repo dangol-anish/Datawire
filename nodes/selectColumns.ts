@@ -4,7 +4,7 @@ export const selectColumnsNode: NodeDefinition = {
   type: "SelectColumns",
   label: "Select Columns",
   description: "Keep only specified columns",
-  color: "bg-purple-600",
+  color: "#9333ea",
   inputs: 1,
   outputs: 1,
   configSchema: [

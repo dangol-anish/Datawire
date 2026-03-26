@@ -7,6 +7,7 @@ import { EditorCanvas } from "@/components/canvas/EditorCanvas";
 import { EditorToolbar } from "@/components/toolbar/EditorToolbar";
 import type { GraphJSON } from "@/types";
 import { NodeConfigSidebar } from "@/components/sidebar/NodeConfigSidebar";
+import { ResultsModal } from "@/components/results/ResultsModal";
 
 interface Pipeline {
   id: string;
@@ -20,7 +21,7 @@ interface Props {
 }
 
 export function EditorClient({ pipeline }: Props) {
-  const { setNodes, setEdges } = useGraphStore();
+  const { setNodes, setEdges, setSelectedNodeId, pushHistory } = useGraphStore();
   const { setPipelineStatus, setNodeStatus, setResult } = useExecutionStore();
   const workerRef = useRef<Worker | null>(null);
 
@@ -97,17 +98,48 @@ export function EditorClient({ pipeline }: Props) {
     });
   };
 
+  const handleDeleteSelected = () => {
+    const { selectedNodeId, nodes, edges } = useGraphStore.getState();
+    if (!selectedNodeId) return;
+
+    pushHistory();
+    setNodes(nodes.filter((n) => n.id !== selectedNodeId));
+    setEdges(
+      edges.filter(
+        (e) => e.source !== selectedNodeId && e.target !== selectedNodeId,
+      ),
+    );
+    setSelectedNodeId(null);
+  };
+
+  const handleClear = () => {
+    const { nodes, edges } = useGraphStore.getState();
+    if (nodes.length === 0 && edges.length === 0) return;
+    const ok = window.confirm("Clear the canvas? This can be undone.");
+    if (!ok) return;
+
+    pushHistory();
+    setNodes([]);
+    setEdges([]);
+    setSelectedNodeId(null);
+  };
+
   return (
     <div className="flex flex-col h-screen bg-[#0d0f14] overflow-hidden">
       <EditorToolbar
         pipelineName={pipeline.name}
         onRun={handleRun}
         onSave={handleSave}
+        onDeleteSelected={handleDeleteSelected}
+        onClear={handleClear}
       />
-      <div className="flex-1 overflow-hidden">
-        <EditorCanvas />
+      <div className="flex flex-1 overflow-hidden">
+        <div className="flex-1 overflow-hidden">
+          <EditorCanvas />
+        </div>
         <NodeConfigSidebar />
       </div>
+      <ResultsModal />
     </div>
   );
 }
