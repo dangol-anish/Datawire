@@ -16,6 +16,7 @@ export default async function EditorPage({ params }: Props) {
     .from("pipelines")
     .select("*")
     .eq("id", params.id)
+    .eq("user_id", session.user.id)
     .single();
 
   if (!pipeline) notFound();

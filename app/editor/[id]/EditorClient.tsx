@@ -102,11 +102,19 @@ export function EditorClient({ pipeline }: Props) {
     const { nodes, edges } = useGraphStore.getState();
     const graph_json: GraphJSON = { nodes, edges };
 
-    await fetch(`/api/pipelines/${pipeline.id}`, {
+    const res = await fetch(`/api/pipelines/${pipeline.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ graph_json }),
     });
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      const msg =
+        (body && typeof body.error === "string" && body.error) ||
+        `Save failed (${res.status})`;
+      window.alert(msg);
+    }
   };
 
   const handleDeleteSelected = () => {
