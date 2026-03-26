@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef } from "react";
+import { useSession } from "next-auth/react";
 import { useGraphStore } from "@/store/graphStore";
 import { useExecutionStore } from "@/store/executionStore";
 import { EditorCanvas } from "@/components/canvas/EditorCanvas";
@@ -8,6 +9,7 @@ import { EditorToolbar } from "@/components/toolbar/EditorToolbar";
 import type { GraphJSON } from "@/types";
 import { NodeConfigSidebar } from "@/components/sidebar/NodeConfigSidebar";
 import { ResultsModal } from "@/components/results/ResultsModal";
+import { usePipelinePresence } from "@/hooks/usePipelinePresence";
 
 interface Pipeline {
   id: string;
@@ -24,6 +26,15 @@ export function EditorClient({ pipeline }: Props) {
   const { setNodes, setEdges, setSelectedNodeId, pushHistory } = useGraphStore();
   const { setPipelineStatus, setNodeStatus, setResult } = useExecutionStore();
   const workerRef = useRef<Worker | null>(null);
+  const { data: session } = useSession();
+  const myUserId = session?.user?.id;
+  const myUsername = session?.user?.name || session?.user?.email || "User";
+
+  const { sendCursor } = usePipelinePresence({
+    pipelineId: pipeline.id,
+    userId: myUserId,
+    username: myUsername,
+  });
 
   // Initialise canvas from saved graph
   useEffect(() => {
@@ -135,7 +146,12 @@ export function EditorClient({ pipeline }: Props) {
       />
       <div className="flex flex-1 overflow-hidden">
         <div className="flex-1 overflow-hidden">
-          <EditorCanvas />
+          <EditorCanvas
+            myUserId={myUserId}
+            onCursorMove={(pos) => {
+              sendCursor(pos);
+            }}
+          />
         </div>
         <NodeConfigSidebar />
       </div>

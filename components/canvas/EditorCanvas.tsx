@@ -17,6 +17,7 @@ import { NODE_REGISTRY, NODE_LIST } from "@/nodes/index";
 import { PipelineNodeCard } from "./PipelineNodeCard";
 import { NodePalette } from "./NodePalette";
 import type { PipelineNode } from "@/types";
+import { PresenceCursors } from "./PresenceCursors";
 
 // Register custom node types for ReactFlow
 const nodeTypes: Record<string, React.ComponentType<any>> = {};
@@ -29,10 +30,20 @@ function generateNodeId() {
   return `node_${Date.now()}_${nodeIdCounter++}`;
 }
 
-export function EditorCanvas() {
+export function EditorCanvas({
+  onCursorMove,
+  myUserId,
+}: {
+  onCursorMove?: (pos: { x: number; y: number }) => void;
+  myUserId?: string;
+}) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [reactFlowInstance, setReactFlowInstance] =
     React.useState<ReactFlowInstance | null>(null);
+  const cursorRafRef = useRef<number | null>(null);
+  const latestCursorEventRef = useRef<React.DragEvent | React.MouseEvent | null>(
+    null,
+  );
 
   const {
     nodes,
@@ -43,6 +54,24 @@ export function EditorCanvas() {
     setSelectedNodeId,
     pushHistory,
   } = useGraphStore();
+
+  const flushCursor = useCallback(() => {
+    cursorRafRef.current = null;
+    const handler = onCursorMove;
+    const ev = latestCursorEventRef.current;
+    if (!handler || !ev || !reactFlowInstance || !reactFlowWrapper.current) return;
+
+    const wrapperBounds = reactFlowWrapper.current.getBoundingClientRect();
+    const clientX = (ev as any).clientX as number | undefined;
+    const clientY = (ev as any).clientY as number | undefined;
+    if (typeof clientX !== "number" || typeof clientY !== "number") return;
+
+    const pos = reactFlowInstance.screenToFlowPosition({
+      x: clientX - wrapperBounds.left,
+      y: clientY - wrapperBounds.top,
+    });
+    handler(pos);
+  }, [reactFlowInstance, onCursorMove]);
 
   const onConnect = useCallback(
     (connection: Connection) => {
@@ -102,13 +131,24 @@ export function EditorCanvas() {
     [reactFlowInstance, nodes, pushHistory],
   );
 
+  const onMouseMove = useCallback(
+    (event: React.MouseEvent) => {
+      if (!onCursorMove) return;
+      latestCursorEventRef.current = event;
+      if (cursorRafRef.current == null) {
+        cursorRafRef.current = window.requestAnimationFrame(flushCursor);
+      }
+    },
+    [flushCursor, onCursorMove],
+  );
+
   return (
     <div className="relative flex h-full w-full">
       {/* Node palette on the left */}
       <NodePalette />
 
       {/* Main canvas area */}
-      <div ref={reactFlowWrapper} className="flex-1 h-full">
+      <div ref={reactFlowWrapper} className="flex-1 h-full" onMouseMove={onMouseMove}>
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -126,6 +166,7 @@ export function EditorCanvas() {
           proOptions={{ hideAttribution: true }}
           className="bg-[#0d0f14]"
         >
+          <PresenceCursors myUserId={myUserId} />
           <Background
             variant={BackgroundVariant.Dots}
             gap={24}
