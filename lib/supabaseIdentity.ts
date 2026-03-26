@@ -8,6 +8,51 @@ type GithubIdentity = {
   login?: string | null;
 };
 
+async function findExistingSupabaseAuthUserId(args: {
+  githubId: string;
+  email?: string | null;
+}): Promise<string | null> {
+  const targetGithubId = args.githubId;
+  const targetEmail = args.email?.toLowerCase() ?? null;
+
+  const maxPages = 20;
+  const perPage = 100;
+
+  for (let page = 1; page <= maxPages; page++) {
+    const { data, error } = await supabaseServer.auth.admin.listUsers({
+      page,
+      perPage,
+    });
+    if (error) {
+      throw new Error(`Supabase Auth listUsers failed: ${error.message}`);
+    }
+
+    for (const user of data.users) {
+      const userMetadata = (user as any)?.user_metadata as
+        | Record<string, unknown>
+        | undefined;
+      const githubId =
+        typeof userMetadata?.github_id === "string"
+          ? (userMetadata.github_id as string)
+          : null;
+
+      if (githubId === targetGithubId) return user.id;
+
+      if (
+        targetEmail &&
+        typeof user.email === "string" &&
+        user.email.toLowerCase() === targetEmail
+      ) {
+        return user.id;
+      }
+    }
+
+    if (data.users.length < perPage) break;
+  }
+
+  return null;
+}
+
 /**
  * Maps a GitHub user to a Supabase Auth user UUID (and a `profiles` row).
  *
@@ -21,20 +66,42 @@ export async function getOrCreateSupabaseUserIdForGithub(
   const githubId = identity.githubId;
   if (!githubId) throw new Error("Missing GitHub id");
 
-  const { data: existingProfile, error: profileLookupError } =
-    await supabaseServer
-      .from("profiles")
-      .select("id")
-      .eq("github_id", githubId)
-      .maybeSingle();
+  // Preferred: use a `profiles` table as a stable, queryable mapping.
+  // Fallback: if `profiles` doesn't exist, scan Supabase Auth users.
+  try {
+    const { data: existingProfile, error: profileLookupError } =
+      await supabaseServer
+        .from("profiles")
+        .select("id")
+        .eq("github_id", githubId)
+        .maybeSingle();
 
-  if (profileLookupError) {
-    throw new Error(
-      `Supabase profiles lookup failed (need profiles.github_id): ${profileLookupError.message}`,
-    );
+    if (profileLookupError) {
+      throw profileLookupError;
+    }
+
+    if (existingProfile?.id) return existingProfile.id as string;
+  } catch (err: any) {
+    const message =
+      typeof err?.message === "string" ? (err.message as string) : "";
+
+    const looksLikeMissingProfilesTable =
+      message.includes("Could not find the table") ||
+      message.includes("schema cache") ||
+      message.includes("profiles");
+
+    if (!looksLikeMissingProfilesTable) {
+      throw new Error(
+        `Supabase profiles lookup failed (need profiles.github_id): ${message || "unknown error"}`,
+      );
+    }
+
+    const existingAuthUserId = await findExistingSupabaseAuthUserId({
+      githubId,
+      email: identity.email,
+    });
+    if (existingAuthUserId) return existingAuthUserId;
   }
-
-  if (existingProfile?.id) return existingProfile.id as string;
 
   const resolvedEmail =
     identity.email ?? `github-${githubId}@users.noreply.github.com`;
@@ -60,22 +127,24 @@ export async function getOrCreateSupabaseUserIdForGithub(
 
   const supabaseUserId = created.user.id;
 
-  const { error: profileUpsertError } = await supabaseServer
-    .from("profiles")
-    .upsert(
-      {
-        id: supabaseUserId,
-        github_id: githubId,
-      },
-      { onConflict: "id" },
-    );
+  // Best-effort profiles upsert (skip if table doesn't exist).
+  try {
+    const { error: profileUpsertError } = await supabaseServer
+      .from("profiles")
+      .upsert(
+        {
+          id: supabaseUserId,
+          github_id: githubId,
+        },
+        { onConflict: "id" },
+      );
 
-  if (profileUpsertError) {
-    throw new Error(
-      `Supabase profiles upsert failed (need id + github_id columns): ${profileUpsertError.message}`,
-    );
+    if (profileUpsertError) {
+      throw profileUpsertError;
+    }
+  } catch {
+    // Intentionally ignore: app can function without profiles in early/dev setups.
   }
 
   return supabaseUserId;
 }
-
