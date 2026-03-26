@@ -1,11 +1,15 @@
 "use client";
 
 import React from "react";
-import { useViewport } from "reactflow";
 import { usePresenceStore } from "@/store/presenceStore";
 
-export function PresenceCursors({ myUserId }: { myUserId?: string }) {
-  const viewport = useViewport();
+export function PresenceCursors({
+  myUserId,
+  viewport,
+}: {
+  myUserId?: string;
+  viewport: { x: number; y: number; zoom: number };
+}) {
   const collaborators = usePresenceStore((s) => s.collaborators);
 
   const others = Object.values(collaborators).filter(
@@ -99,4 +103,3 @@ export function PresenceCursors({ myUserId }: { myUserId?: string }) {
     </div>
   );
 }
-

@@ -9,6 +9,7 @@ import ReactFlow, {
   BackgroundVariant,
   type Connection,
   type ReactFlowInstance,
+  type Viewport,
 } from "reactflow";
 import "reactflow/dist/style.css";
 
@@ -40,6 +41,11 @@ export function EditorCanvas({
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [reactFlowInstance, setReactFlowInstance] =
     React.useState<ReactFlowInstance | null>(null);
+  const [viewport, setViewport] = React.useState<Viewport>({
+    x: 0,
+    y: 0,
+    zoom: 1,
+  });
   const cursorRafRef = useRef<number | null>(null);
   const latestCursorEventRef = useRef<React.DragEvent | React.MouseEvent | null>(
     null,
@@ -158,6 +164,7 @@ export function EditorCanvas({
           onNodeClick={onNodeClick}
           onPaneClick={onPaneClick}
           onInit={setReactFlowInstance}
+          onMove={(_, vp) => setViewport(vp)}
           onDrop={onDrop}
           onDragOver={onDragOver}
           nodeTypes={nodeTypes}
@@ -166,7 +173,7 @@ export function EditorCanvas({
           proOptions={{ hideAttribution: true }}
           className="bg-[#0d0f14]"
         >
-          <PresenceCursors myUserId={myUserId} />
+          <PresenceCursors myUserId={myUserId} viewport={viewport} />
           <Background
             variant={BackgroundVariant.Dots}
             gap={24}
