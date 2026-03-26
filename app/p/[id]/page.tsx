@@ -1,11 +1,13 @@
+// app/p/[id]/page.tsx
 import { supabaseServer } from "@/lib/supabaseServer";
 import { notFound } from "next/navigation";
+import { SharedViewClient } from "./SharedViewClient";
 
-interface Props {
+export default async function SharedViewPage({
+  params,
+}: {
   params: { id: string };
-}
-
-export default async function SharedPipelinePage({ params }: Props) {
+}) {
   const { data: pipeline } = await supabaseServer
     .from("pipelines")
     .select("*")
@@ -14,10 +16,5 @@ export default async function SharedPipelinePage({ params }: Props) {
     .single();
 
   if (!pipeline) notFound();
-
-  return (
-    <div className="flex h-screen items-center justify-center bg-canvas">
-      <p className="text-white">Shared view: {pipeline.name}</p>
-    </div>
-  );
+  return <SharedViewClient pipeline={pipeline} />;
 }

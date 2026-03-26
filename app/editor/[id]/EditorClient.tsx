@@ -6,6 +6,7 @@ import { useExecutionStore } from "@/store/executionStore";
 import { EditorCanvas } from "@/components/canvas/EditorCanvas";
 import { EditorToolbar } from "@/components/toolbar/EditorToolbar";
 import type { GraphJSON } from "@/types";
+import { NodeConfigSidebar } from "@/components/sidebar/NodeConfigSidebar";
 
 interface Pipeline {
   id: string;
@@ -105,6 +106,7 @@ export function EditorClient({ pipeline }: Props) {
       />
       <div className="flex-1 overflow-hidden">
         <EditorCanvas />
+        <NodeConfigSidebar />
       </div>
     </div>
   );
