@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/nextAuthOptions";
 import { redirect, notFound } from "next/navigation";
 import { supabaseServer } from "@/lib/supabaseServer";
+import { EditorClient } from "./EditorClient";
 
 interface Props {
   params: { id: string };
@@ -19,9 +20,5 @@ export default async function EditorPage({ params }: Props) {
 
   if (!pipeline) notFound();
 
-  return (
-    <div className="flex h-screen items-center justify-center bg-canvas">
-      <p className="text-white">Editor coming soon for pipeline: {params.id}</p>
-    </div>
-  );
+  return <EditorClient pipeline={pipeline} />;
 }

@@ -1,48 +1,39 @@
+// store/executionStore.ts
+// Replace your existing executionStore with this full version.
+// Adds setPipelineStatus, setNodeStatus, setResult actions
+// that EditorClient.tsx calls from Worker messages.
+
 import { create } from "zustand";
-import type { DataTable } from "@/types";
+import type { DataTable, NodeExecutionError } from "@/types";
 
 export type NodeStatus = "idle" | "running" | "complete" | "error";
+export type PipelineStatus = "idle" | "running" | "complete" | "error";
+
+type NodeResult = DataTable | NodeExecutionError;
 
 interface ExecutionState {
-  results: Record<string, DataTable>;
-  errors: Record<string, string>;
+  results: Record<string, NodeResult>;
   nodeStatuses: Record<string, NodeStatus>;
-  pipelineStatus: "idle" | "running" | "complete" | "error";
+  pipelineStatus: PipelineStatus;
 
-  setNodeRunning: (nodeId: string) => void;
-  setNodeComplete: (nodeId: string, result: DataTable) => void;
-  setNodeError: (nodeId: string, error: string) => void;
-  setPipelineStatus: (
-    status: "idle" | "running" | "complete" | "error",
-  ) => void;
+  setResult: (nodeId: string, result: NodeResult) => void;
+  setNodeStatus: (nodeId: string, status: NodeStatus) => void;
+  setPipelineStatus: (status: PipelineStatus) => void;
   reset: () => void;
 }
 
 export const useExecutionStore = create<ExecutionState>((set) => ({
   results: {},
-  errors: {},
   nodeStatuses: {},
   pipelineStatus: "idle",
 
-  setNodeRunning: (nodeId) =>
-    set((state) => ({
-      nodeStatuses: { ...state.nodeStatuses, [nodeId]: "running" },
-    })),
+  setResult: (nodeId, result) =>
+    set((s) => ({ results: { ...s.results, [nodeId]: result } })),
 
-  setNodeComplete: (nodeId, result) =>
-    set((state) => ({
-      results: { ...state.results, [nodeId]: result },
-      nodeStatuses: { ...state.nodeStatuses, [nodeId]: "complete" },
-    })),
-
-  setNodeError: (nodeId, error) =>
-    set((state) => ({
-      errors: { ...state.errors, [nodeId]: error },
-      nodeStatuses: { ...state.nodeStatuses, [nodeId]: "error" },
-    })),
+  setNodeStatus: (nodeId, status) =>
+    set((s) => ({ nodeStatuses: { ...s.nodeStatuses, [nodeId]: status } })),
 
   setPipelineStatus: (status) => set({ pipelineStatus: status }),
 
-  reset: () =>
-    set({ results: {}, errors: {}, nodeStatuses: {}, pipelineStatus: "idle" }),
+  reset: () => set({ results: {}, nodeStatuses: {}, pipelineStatus: "idle" }),
 }));
