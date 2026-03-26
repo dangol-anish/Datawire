@@ -1,0 +1,186 @@
+"use client";
+
+import React, { useMemo, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { signOut } from "next-auth/react";
+import clsx from "clsx";
+
+type PipelineRow = {
+  id: string;
+  name: string;
+  is_public: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+function formatDate(iso: string) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+  });
+}
+
+export function HomeClient({
+  pipelines,
+  user,
+}: {
+  pipelines: PipelineRow[];
+  user: { name?: string | null; email?: string | null; image?: string | null };
+}) {
+  const router = useRouter();
+  const [creating, setCreating] = useState(false);
+
+  const headerLabel = useMemo(() => {
+    return user?.name || user?.email || "Account";
+  }, [user?.name, user?.email]);
+
+  const createPipeline = async () => {
+    if (creating) return;
+    setCreating(true);
+    try {
+      const res = await fetch("/api/pipelines", { method: "POST" });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(body?.error ?? "Failed to create pipeline");
+      }
+      router.push(`/editor/${body.id}`);
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  return (
+    <main className="min-h-screen bg-canvas text-white">
+      <div className="max-w-5xl mx-auto px-6 py-10">
+        <header className="flex items-center gap-4 mb-8">
+          <div className="flex items-center gap-3 min-w-0">
+            <div
+              className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+              style={{ background: "#6366f1" }}
+            >
+              <svg width="18" height="18" viewBox="0 0 14 14" fill="none">
+                <circle cx="3" cy="7" r="2" fill="white" />
+                <circle cx="11" cy="3" r="2" fill="white" />
+                <circle cx="11" cy="11" r="2" fill="white" />
+                <line
+                  x1="5"
+                  y1="6.5"
+                  x2="9"
+                  y2="3.5"
+                  stroke="white"
+                  strokeWidth="1.2"
+                />
+                <line
+                  x1="5"
+                  y1="7.5"
+                  x2="9"
+                  y2="10.5"
+                  stroke="white"
+                  strokeWidth="1.2"
+                />
+              </svg>
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-2xl font-bold truncate">Datawire</h1>
+              <p className="text-xs text-slate-400 truncate">
+                Pipelines for {headerLabel}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex-1" />
+
+          <button
+            onClick={createPipeline}
+            className={clsx(
+              "h-9 px-4 rounded-lg text-sm font-semibold transition-colors",
+              creating
+                ? "bg-indigo-700/70 text-white/90 cursor-not-allowed"
+                : "bg-accent hover:bg-indigo-500 text-white",
+            )}
+            disabled={creating}
+            title="Create a new pipeline"
+          >
+            {creating ? "Creating…" : "New pipeline"}
+          </button>
+
+          <button
+            onClick={() => signOut({ callbackUrl: "/login" })}
+            className="h-9 px-4 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 transition-colors"
+            title="Sign out"
+          >
+            Sign out
+          </button>
+        </header>
+
+        {pipelines.length === 0 ? (
+          <div className="rounded-2xl border border-border bg-surface p-10">
+            <h2 className="text-lg font-semibold">No pipelines yet</h2>
+            <p className="text-sm text-slate-400 mt-1">
+              Create your first pipeline, then open it in the editor.
+            </p>
+            <div className="mt-6">
+              <button
+                onClick={createPipeline}
+                className="h-10 px-5 rounded-lg bg-accent hover:bg-indigo-500 text-white font-semibold transition-colors"
+                disabled={creating}
+              >
+                {creating ? "Creating…" : "Create pipeline"}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {pipelines.map((p) => (
+              <div
+                key={p.id}
+                className="rounded-2xl border border-border bg-surface p-5 flex flex-col gap-3"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="w-2 h-2 rounded-full bg-indigo-500 mt-2" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-white truncate">
+                      {p.name}
+                    </p>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Updated {formatDate(p.updated_at)}
+                      {p.is_public ? " · Public" : " · Private"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 mt-1">
+                  <Link
+                    href={`/editor/${p.id}`}
+                    className="h-8 px-3 rounded-md bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-xs font-semibold text-white transition-colors"
+                  >
+                    Open editor
+                  </Link>
+
+                  <Link
+                    href={`/p/${p.id}`}
+                    className="h-8 px-3 rounded-md text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 transition-colors"
+                    title="Open share view (requires pipeline to be public)"
+                  >
+                    Shared view
+                  </Link>
+
+                  <div className="flex-1" />
+
+                  <span className="text-[11px] font-mono text-slate-600 truncate">
+                    {p.id}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </main>
+  );
+}
+
