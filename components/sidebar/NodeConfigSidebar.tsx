@@ -4,7 +4,7 @@
 import React from "react";
 import { useGraphStore } from "@/store/graphStore";
 import { NODE_REGISTRY } from "@/nodes/index";
-import type { ConfigField } from "@/types";
+import type { ConfigField, DataTable } from "@/types";
 import { useExecutionStore } from "@/store/executionStore";
 import { isExecutionError } from "@/types";
 
@@ -41,6 +41,9 @@ export function NodeConfigSidebar() {
   if (!def) return null;
 
   const config = node.data.config ?? {};
+  const resultTable: DataTable | null =
+    result && !isExecutionError(result as any) ? (result as any) : null;
+  const availableColumns = resultTable?.columns ?? [];
 
   const handleChange = (key: string, value: unknown) => {
     pushHistory();
@@ -83,7 +86,40 @@ export function NodeConfigSidebar() {
               {field.required && <span className="text-red-500 ml-0.5">*</span>}
             </label>
 
-            {field.type === "text" || field.type === "expression" ? (
+            {def.type === "Visualise" &&
+            (field.key === "xColumn" || field.key === "yColumn") ? (
+              <>
+                <select
+                  value={(config[field.key] as string) ?? ""}
+                  onChange={(e) => handleChange(field.key, e.target.value)}
+                  disabled={availableColumns.length === 0}
+                  className="w-full px-2.5 py-1.5 text-xs text-slate-200 rounded-md outline-none disabled:opacity-60"
+                  style={{
+                    background: "#161b27",
+                    border: "1px solid #2a3347",
+                  }}
+                >
+                  {availableColumns.length === 0 ? (
+                    <option value="">Run pipeline to load columns…</option>
+                  ) : (
+                    <>
+                      <option value="">Select…</option>
+                      {availableColumns.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </>
+                  )}
+                </select>
+                {availableColumns.length === 0 && (
+                  <p className="text-[11px] text-slate-600 mt-1">
+                    Run the pipeline first so Datawire can detect available
+                    columns.
+                  </p>
+                )}
+              </>
+            ) : field.type === "text" || field.type === "expression" ? (
               <input
                 type="text"
                 value={(config[field.key] as string) ?? ""}
