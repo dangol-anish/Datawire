@@ -10,9 +10,11 @@ import type { GraphJSON } from "@/types";
 import { NodeConfigSidebar } from "@/components/sidebar/NodeConfigSidebar";
 import { ResultsModal } from "@/components/results/ResultsModal";
 import { usePipelinePresence } from "@/hooks/usePipelinePresence";
+import { ShareDialog } from "@/components/share/ShareDialog";
 
 interface Pipeline {
   id: string;
+  user_id: string;
   name: string;
   graph_json: GraphJSON | null;
   is_public: boolean;
@@ -29,6 +31,8 @@ export function EditorClient({ pipeline }: Props) {
   const { data: session } = useSession();
   const myUserId = session?.user?.id;
   const myUsername = session?.user?.name || session?.user?.email || "User";
+  const [shareOpen, setShareOpen] = React.useState(false);
+  const isOwner = Boolean(myUserId && pipeline.user_id === myUserId);
 
   const { sendCursor } = usePipelinePresence({
     pipelineId: pipeline.id,
@@ -151,6 +155,7 @@ export function EditorClient({ pipeline }: Props) {
         onSave={handleSave}
         onDeleteSelected={handleDeleteSelected}
         onClear={handleClear}
+        onShare={() => setShareOpen(true)}
       />
       <div className="flex flex-1 overflow-hidden">
         <div className="flex-1 overflow-hidden">
@@ -164,6 +169,12 @@ export function EditorClient({ pipeline }: Props) {
         <NodeConfigSidebar />
       </div>
       <ResultsModal />
+      <ShareDialog
+        open={shareOpen}
+        onClose={() => setShareOpen(false)}
+        pipelineId={pipeline.id}
+        isOwner={isOwner}
+      />
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/nextAuthOptions";
 import { redirect, notFound } from "next/navigation";
-import { supabaseServer } from "@/lib/supabaseServer";
+import { canEditPipeline, getPipelineById } from "@/lib/pipelineAccess";
 import { EditorClient } from "./EditorClient";
 
 interface Props {
@@ -12,13 +12,14 @@ export default async function EditorPage({ params }: Props) {
   const session = await getServerSession(authOptions);
   if (!session) redirect("/login");
 
-  const { data: pipeline } = await supabaseServer
-    .from("pipelines")
-    .select("*")
-    .eq("id", params.id)
-    .eq("user_id", session.user.id)
-    .single();
+  const canEdit = await canEditPipeline({
+    pipelineId: params.id,
+    userId: session.user.id,
+  });
 
+  if (!canEdit) notFound();
+
+  const pipeline = await getPipelineById(params.id);
   if (!pipeline) notFound();
 
   return <EditorClient pipeline={pipeline} />;

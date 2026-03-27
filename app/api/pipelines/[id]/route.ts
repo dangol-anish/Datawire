@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/nextAuthOptions";
 import { supabaseServer } from "@/lib/supabaseServer";
+import { canEditPipeline } from "@/lib/pipelineAccess";
 
 export async function PATCH(
   req: NextRequest,
@@ -11,6 +12,14 @@ export async function PATCH(
   const session = await getServerSession(authOptions);
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const canEdit = await canEditPipeline({
+    pipelineId: params.id,
+    userId: session.user.id,
+  });
+  if (!canEdit) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const body = await req.json();
@@ -24,7 +33,6 @@ export async function PATCH(
     .from("pipelines")
     .update({ graph_json, updated_at: new Date().toISOString() })
     .eq("id", params.id)
-    .eq("user_id", session.user.id)
     .select("id");
 
   if (error) {

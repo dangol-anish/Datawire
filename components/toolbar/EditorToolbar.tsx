@@ -10,6 +10,7 @@ interface ToolbarProps {
   onSave: () => void;
   onDeleteSelected: () => void;
   onClear: () => void;
+  onShare?: () => void;
 }
 
 export function EditorToolbar({
@@ -18,6 +19,7 @@ export function EditorToolbar({
   onSave,
   onDeleteSelected,
   onClear,
+  onShare,
 }: ToolbarProps) {
   const { undo, redo, history, future } = useGraphStore();
   const status = useExecutionStore((s) => s.pipelineStatus);
@@ -116,6 +118,17 @@ export function EditorToolbar({
       </button>
 
       <div className="w-px h-5 bg-white/10 mx-1" />
+
+      {/* Share */}
+      {onShare && (
+        <button
+          onClick={onShare}
+          className="flex items-center gap-1.5 px-3 h-7 rounded-md text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 transition-colors"
+          title="Share / Invite"
+        >
+          Share
+        </button>
+      )}
 
       {/* Save */}
       <button
