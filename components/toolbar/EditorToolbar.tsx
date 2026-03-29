@@ -12,6 +12,10 @@ interface ToolbarProps {
   onClear: () => void;
   onShare?: () => void;
   className?: string;
+  onUndo?: () => void;
+  onRedo?: () => void;
+  canUndo?: boolean;
+  canRedo?: boolean;
 }
 
 export function EditorToolbar({
@@ -22,6 +26,10 @@ export function EditorToolbar({
   onClear,
   onShare,
   className,
+  onUndo,
+  onRedo,
+  canUndo,
+  canRedo,
 }: ToolbarProps) {
   const { undo, redo, history, future } = useGraphStore();
   const status = useExecutionStore((s) => s.pipelineStatus);
@@ -75,8 +83,8 @@ export function EditorToolbar({
 
       {/* Undo / Redo */}
       <button
-        onClick={undo}
-        disabled={history.length === 0}
+        onClick={onUndo ?? undo}
+        disabled={typeof canUndo === "boolean" ? !canUndo : history.length === 0}
         className="flex items-center justify-center w-7 h-7 rounded-md text-slate-400 disabled:opacity-30 hover:text-slate-200 hover:bg-white/5 transition-colors"
         title="Undo (Ctrl+Z)"
       >
@@ -97,8 +105,8 @@ export function EditorToolbar({
         </svg>
       </button>
       <button
-        onClick={redo}
-        disabled={future.length === 0}
+        onClick={onRedo ?? redo}
+        disabled={typeof canRedo === "boolean" ? !canRedo : future.length === 0}
         className="flex items-center justify-center w-7 h-7 rounded-md text-slate-400 disabled:opacity-30 hover:text-slate-200 hover:bg-white/5 transition-colors"
         title="Redo"
       >

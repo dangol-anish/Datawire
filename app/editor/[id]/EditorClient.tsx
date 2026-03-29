@@ -45,11 +45,14 @@ export function EditorClient({ pipeline }: Props) {
     null,
   );
   const addNodeRef = React.useRef<((nodeType: string) => void) | null>(null);
+  const [collabEnabled, setCollabEnabled] = React.useState(false);
 
   const { sendCursor, broadcastGraphEvent } = usePipelineCollaboration({
     pipelineId: pipeline.id,
     userId: myUserId,
     username: myUsername,
+    enabled: collabEnabled,
+    canBroadcast: true,
   });
 
   const configDebounceRef = useRef<Record<string, number>>({});
@@ -70,7 +73,11 @@ export function EditorClient({ pipeline }: Props) {
     if (pipeline.graph_json) {
       setNodes(pipeline.graph_json.nodes ?? []);
       setEdges(pipeline.graph_json.edges ?? []);
+    } else {
+      setNodes([]);
+      setEdges([]);
     }
+    setCollabEnabled(true);
   }, [pipeline.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // If the owner downgrades this user from editor -> viewer, auto-switch them to the read-only view.
@@ -217,7 +224,7 @@ export function EditorClient({ pipeline }: Props) {
       if (metaOrCtrl && (key === "z" || key === "Z") && !e.shiftKey) {
         if (typing) return;
         e.preventDefault();
-        undo();
+        handleUndo();
         return;
       }
 
@@ -228,7 +235,7 @@ export function EditorClient({ pipeline }: Props) {
       ) {
         if (typing) return;
         e.preventDefault();
-        redo();
+        handleRedo();
         return;
       }
 
@@ -244,7 +251,7 @@ export function EditorClient({ pipeline }: Props) {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [undo, redo, pipeline.id]);
+  }, [pipeline.id]);
 
   const handleDeleteSelected = () => {
     const { selectedNodeId, nodes, edges } = useGraphStore.getState();
@@ -262,6 +269,21 @@ export function EditorClient({ pipeline }: Props) {
     broadcastGraphEvent({ type: "NODE_REMOVED", nodeId: selectedNodeId });
   };
 
+  const broadcastSnapshot = (reason: "undo" | "redo" | "clear") => {
+    const { nodes, edges } = useGraphStore.getState();
+    broadcastGraphEvent({ type: "GRAPH_REPLACED", nodes, edges, reason });
+  };
+
+  const handleUndo = () => {
+    undo();
+    broadcastSnapshot("undo");
+  };
+
+  const handleRedo = () => {
+    redo();
+    broadcastSnapshot("redo");
+  };
+
   const handleClear = () => {
     const { nodes, edges } = useGraphStore.getState();
     if (nodes.length === 0 && edges.length === 0) return;
@@ -273,9 +295,12 @@ export function EditorClient({ pipeline }: Props) {
     setEdges([]);
     setSelectedNodeId(null);
 
-    nodes.forEach((n) =>
-      broadcastGraphEvent({ type: "NODE_REMOVED", nodeId: n.id }),
-    );
+    broadcastGraphEvent({
+      type: "GRAPH_REPLACED",
+      nodes: [],
+      edges: [],
+      reason: "clear",
+    });
   };
 
   return (
@@ -331,6 +356,10 @@ export function EditorClient({ pipeline }: Props) {
         onDeleteSelected={handleDeleteSelected}
         onClear={handleClear}
         onShare={() => setShareOpen(true)}
+        onUndo={handleUndo}
+        onRedo={handleRedo}
+        canUndo={historyLen > 0}
+        canRedo={futureLen > 0}
       />
       <div className="flex flex-1 overflow-hidden md:pb-0 pb-14">
         <div className="hidden md:block">
@@ -397,7 +426,7 @@ export function EditorClient({ pipeline }: Props) {
           </button>
           <div className="flex-1" />
           <button
-            onClick={undo}
+            onClick={handleUndo}
             className="w-10 h-10 rounded-lg text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 disabled:opacity-40"
             disabled={historyLen === 0}
             title="Undo"
@@ -405,7 +434,7 @@ export function EditorClient({ pipeline }: Props) {
             ↺
           </button>
           <button
-            onClick={redo}
+            onClick={handleRedo}
             className="w-10 h-10 rounded-lg text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 disabled:opacity-40"
             disabled={futureLen === 0}
             title="Redo"

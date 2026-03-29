@@ -27,6 +27,23 @@ type CursorPayload = {
 
 export type GraphEvent =
   | {
+      type: "GRAPH_REPLACED";
+      nodes: PipelineNode[];
+      edges: PipelineEdge[];
+      reason?: "undo" | "redo" | "clear" | "sync";
+    }
+  | {
+      type: "STATE_REQUEST";
+      requestId: string;
+    }
+  | {
+      type: "STATE_RESPONSE";
+      requestId: string;
+      nodes: PipelineNode[];
+      edges: PipelineEdge[];
+      revision: number;
+    }
+  | {
       type: "NODE_ADDED";
       node: PipelineNode;
     }
@@ -58,9 +75,14 @@ type GraphEnvelope = {
   actorId: string;
   pipelineId: string;
   ts: number;
+  seq: number;
+  rev: number;
   event: GraphEvent;
 };
 
+type GraphReplacedEvent = Extract<GraphEvent, { type: "GRAPH_REPLACED" }>;
+type StateRequestEvent = Extract<GraphEvent, { type: "STATE_REQUEST" }>;
+type StateResponseEvent = Extract<GraphEvent, { type: "STATE_RESPONSE" }>;
 type NodeAddedEvent = Extract<GraphEvent, { type: "NODE_ADDED" }>;
 type NodeMovedEvent = Extract<GraphEvent, { type: "NODE_MOVED" }>;
 type NodeConfigChangedEvent = Extract<GraphEvent, { type: "NODE_CONFIG_CHANGED" }>;
@@ -79,8 +101,11 @@ export function usePipelineCollaboration(args: {
   pipelineId: string;
   userId: string | null | undefined;
   username: string | null | undefined;
+  enabled?: boolean;
+  canBroadcast?: boolean;
 }) {
-  const { pipelineId, userId, username } = args;
+  const { pipelineId, userId, username, enabled = true, canBroadcast = true } =
+    args;
 
   const setCollaborator = usePresenceStore((s) => s.setCollaborator);
   const removeCollaborator = usePresenceStore((s) => s.removeCollaborator);
@@ -97,6 +122,18 @@ export function usePipelineCollaboration(args: {
 
   const channelRef = useRef<RealtimeChannel | null>(null);
   const recentEventIdsRef = useRef<Set<string>>(new Set());
+  const seqRef = useRef<number>(0);
+  const revRef = useRef<number>(0);
+  const lastSeqByActorRef = useRef<Map<string, number>>(new Map());
+  const lastMoveTsRef = useRef<Map<string, number>>(new Map());
+  const lastConfigTsRef = useRef<Map<string, number>>(new Map());
+  const lastRemovedTsRef = useRef<Map<string, number>>(new Map());
+  const lastEdgeTsRef = useRef<Map<string, number>>(new Map());
+  const pendingStateRequestRef = useRef<{
+    requestId: string;
+    applied: boolean;
+    startedAt: number;
+  } | null>(null);
 
   // Cursor throttling
   const cursorPendingRef = useRef<CursorPayload | null>(null);
@@ -137,12 +174,22 @@ export function usePipelineCollaboration(args: {
   const broadcastGraphEvent = useCallback(
     (event: GraphEvent) => {
       const channel = channelRef.current;
+      if (!enabled) return;
       if (!me || !channel) return;
+      if (!canBroadcast) return;
+
+      // Only increment revision for events that actually mutate the graph.
+      const mutatesGraph =
+        event.type !== "STATE_REQUEST" && event.type !== "STATE_RESPONSE";
+      if (mutatesGraph) revRef.current += 1;
+
       const envelope: GraphEnvelope = {
         eventId: randomId(),
         actorId: me.userId,
         pipelineId,
         ts: Date.now(),
+        seq: (seqRef.current += 1),
+        rev: revRef.current,
         event,
       };
       // Also mark locally to ignore if echoed back
@@ -156,14 +203,36 @@ export function usePipelineCollaboration(args: {
         );
       }
     },
-    [me, pipelineId],
+    [me, pipelineId, enabled, canBroadcast],
   );
+
+  const requestState = useCallback(() => {
+    if (!enabled) return;
+    const channel = channelRef.current;
+    if (!me || !channel) return;
+    const reqId = randomId();
+    pendingStateRequestRef.current = {
+      requestId: reqId,
+      applied: false,
+      startedAt: Date.now(),
+    };
+    broadcastGraphEvent({ type: "STATE_REQUEST", requestId: reqId });
+  }, [broadcastGraphEvent, enabled, me]);
 
   useEffect(() => {
     if (!pipelineId || !me) return;
+    if (!enabled) return;
 
     clearCollaborators();
     recentEventIdsRef.current.clear();
+    seqRef.current = 0;
+    revRef.current = 0;
+    lastSeqByActorRef.current.clear();
+    lastMoveTsRef.current.clear();
+    lastConfigTsRef.current.clear();
+    lastRemovedTsRef.current.clear();
+    lastEdgeTsRef.current.clear();
+    pendingStateRequestRef.current = null;
 
     const channel = supabase.channel(`pipeline:${pipelineId}`, {
       config: { presence: { key: me.userId } },
@@ -230,6 +299,11 @@ export function usePipelineCollaboration(args: {
       if (env.pipelineId !== pipelineId) return;
       if (env.actorId === me.userId) return;
       if (recentEventIdsRef.current.has(env.eventId)) return;
+
+      const lastSeq = lastSeqByActorRef.current.get(env.actorId) ?? 0;
+      if (typeof env.seq === "number" && env.seq <= lastSeq) return;
+      if (typeof env.seq === "number") lastSeqByActorRef.current.set(env.actorId, env.seq);
+
       recentEventIdsRef.current.add(env.eventId);
 
       const { nodes, edges } = useGraphStore.getState();
@@ -238,8 +312,57 @@ export function usePipelineCollaboration(args: {
       const updateNodeConfig = useGraphStore.getState().updateNodeConfig;
 
       switch (env.event.type) {
+        case "STATE_REQUEST": {
+          const ev = env.event as StateRequestEvent;
+          // Answer with current graph snapshot (jittered) to reduce response storms.
+          const jitter = 200 + Math.floor(Math.random() * 250);
+          window.setTimeout(() => {
+            // Don't respond if we aren't connected anymore.
+            if (!channelRef.current) return;
+            const snap = useGraphStore.getState();
+            broadcastGraphEvent({
+              type: "STATE_RESPONSE",
+              requestId: ev.requestId,
+              nodes: snap.nodes,
+              edges: snap.edges,
+              revision: revRef.current,
+            });
+          }, jitter);
+          return;
+        }
+        case "STATE_RESPONSE": {
+          const ev = env.event as StateResponseEvent;
+          const pending = pendingStateRequestRef.current;
+          if (!pending) return;
+          if (pending.applied) return;
+          if (pending.requestId !== ev.requestId) return;
+          // Ignore extremely late responses.
+          if (Date.now() - pending.startedAt > 12_000) return;
+          pending.applied = true;
+          // Apply snapshot
+          setNodes(ev.nodes ?? []);
+          setEdges(ev.edges ?? []);
+          // Reset per-node timestamps so future events can apply normally.
+          lastMoveTsRef.current.clear();
+          lastConfigTsRef.current.clear();
+          lastRemovedTsRef.current.clear();
+          lastEdgeTsRef.current.clear();
+          return;
+        }
+        case "GRAPH_REPLACED": {
+          const ev = env.event as GraphReplacedEvent;
+          setNodes(ev.nodes ?? []);
+          setEdges(ev.edges ?? []);
+          lastMoveTsRef.current.clear();
+          lastConfigTsRef.current.clear();
+          lastRemovedTsRef.current.clear();
+          lastEdgeTsRef.current.clear();
+          return;
+        }
         case "NODE_ADDED": {
           const ev = env.event as NodeAddedEvent;
+          const removedTs = lastRemovedTsRef.current.get(ev.node.id);
+          if (removedTs != null && removedTs > env.ts) return;
           const exists = nodes.some((n) => n.id === ev.node.id);
           if (exists) return;
           setNodes([...nodes, ev.node]);
@@ -247,6 +370,9 @@ export function usePipelineCollaboration(args: {
         }
         case "NODE_MOVED": {
           const ev = env.event as NodeMovedEvent;
+          const lastTs = lastMoveTsRef.current.get(ev.nodeId) ?? 0;
+          if (env.ts < lastTs) return;
+          lastMoveTsRef.current.set(ev.nodeId, env.ts);
           setNodes(
             nodes.map((n) =>
               n.id === ev.nodeId ? { ...n, position: ev.position } : n,
@@ -256,11 +382,19 @@ export function usePipelineCollaboration(args: {
         }
         case "NODE_CONFIG_CHANGED": {
           const ev = env.event as NodeConfigChangedEvent;
+          const lastTs = lastConfigTsRef.current.get(ev.nodeId) ?? 0;
+          if (env.ts < lastTs) return;
+          lastConfigTsRef.current.set(ev.nodeId, env.ts);
           updateNodeConfig(ev.nodeId, ev.config);
           return;
         }
         case "NODE_REMOVED": {
           const ev = env.event as NodeRemovedEvent;
+          const lastTs = lastRemovedTsRef.current.get(ev.nodeId) ?? 0;
+          if (env.ts < lastTs) return;
+          lastRemovedTsRef.current.set(ev.nodeId, env.ts);
+          lastMoveTsRef.current.delete(ev.nodeId);
+          lastConfigTsRef.current.delete(ev.nodeId);
           const nextNodes = nodes.filter((n) => n.id !== ev.nodeId);
           const nextEdges = edges.filter(
             (e) => e.source !== ev.nodeId && e.target !== ev.nodeId,
@@ -271,6 +405,8 @@ export function usePipelineCollaboration(args: {
         }
         case "EDGE_ADDED": {
           const ev = env.event as EdgeAddedEvent;
+          const removedTs = lastEdgeTsRef.current.get(ev.edge.id);
+          if (removedTs != null && removedTs > env.ts) return;
           const exists = edges.some((e) => e.id === ev.edge.id);
           if (exists) return;
           setEdges([...edges, ev.edge]);
@@ -278,6 +414,9 @@ export function usePipelineCollaboration(args: {
         }
         case "EDGE_REMOVED": {
           const ev = env.event as EdgeRemovedEvent;
+          const lastTs = lastEdgeTsRef.current.get(ev.edgeId) ?? 0;
+          if (env.ts < lastTs) return;
+          lastEdgeTsRef.current.set(ev.edgeId, env.ts);
           setEdges(edges.filter((e) => e.id !== ev.edgeId));
           return;
         }
@@ -300,6 +439,9 @@ export function usePipelineCollaboration(args: {
         x: -99999,
         y: -99999,
       });
+
+      // Best-effort: ask for current in-memory graph from an already-connected editor.
+      requestState();
     });
 
     return () => {
@@ -315,9 +457,11 @@ export function usePipelineCollaboration(args: {
   }, [
     pipelineId,
     me,
+    enabled,
     setCollaborator,
     removeCollaborator,
     clearCollaborators,
+    requestState,
   ]);
 
   return { sendCursor, broadcastGraphEvent };
