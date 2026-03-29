@@ -5,9 +5,11 @@ import { groupByNode } from "./groupBy";
 import { joinDatasetsNode } from "./joinDatasets";
 import { sortRowsNode } from "./sortRows";
 import { visualiseNode } from "./visualise";
+import { fileInputNode } from "./fileInput";
 import type { NodeDefinition } from "@/types";
 
 export const NODE_REGISTRY: Record<string, NodeDefinition> = {
+  FileInput: fileInputNode,
   FetchURL: fetchUrlNode,
   FilterRows: filterRowsNode,
   SelectColumns: selectColumnsNode,

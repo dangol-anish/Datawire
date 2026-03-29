@@ -11,6 +11,7 @@ import { NodeConfigSidebar } from "@/components/sidebar/NodeConfigSidebar";
 import { ResultsModal } from "@/components/results/ResultsModal";
 import { usePipelinePresence } from "@/hooks/usePipelinePresence";
 import { ShareDialog } from "@/components/share/ShareDialog";
+import { useFileStore } from "@/store/fileStore";
 
 interface Pipeline {
   id: string;
@@ -87,11 +88,22 @@ export function EditorClient({ pipeline }: Props) {
 
   const handleRun = () => {
     const { nodes, edges } = useGraphStore.getState();
+    const files = useFileStore.getState().files;
 
     // Build configs map expected by executor
     const configs: Record<string, Record<string, unknown>> = {};
     nodes.forEach((node) => {
-      configs[node.id] = { ...node.data.config, __type: node.data.type };
+      const base = { ...node.data.config, __type: node.data.type };
+
+      if (node.data.type === "FileInput") {
+        const file = files[node.id];
+        configs[node.id] = {
+          ...base,
+          __fileText: file?.text,
+        };
+      } else {
+        configs[node.id] = base;
+      }
     });
 
     setPipelineStatus("running");

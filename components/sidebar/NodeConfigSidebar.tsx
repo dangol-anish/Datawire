@@ -7,6 +7,13 @@ import { NODE_REGISTRY } from "@/nodes/index";
 import type { ConfigField, DataTable } from "@/types";
 import { useExecutionStore } from "@/store/executionStore";
 import { isExecutionError } from "@/types";
+import { useFileStore } from "@/store/fileStore";
+
+function guessFormatFromName(name: string): "csv" | "json" {
+  const lower = name.toLowerCase();
+  if (lower.endsWith(".json")) return "json";
+  return "csv";
+}
 
 export function NodeConfigSidebar() {
   const { selectedNodeId, nodes, updateNodeConfig, pushHistory } =
@@ -44,6 +51,11 @@ export function NodeConfigSidebar() {
   const resultTable: DataTable | null =
     result && !isExecutionError(result as any) ? (result as any) : null;
   const availableColumns = resultTable?.columns ?? [];
+  const nodeFile = useFileStore((s) =>
+    selectedNodeId ? s.files[selectedNodeId] : undefined,
+  );
+  const setFile = useFileStore((s) => s.setFile);
+  const clearFile = useFileStore((s) => s.clearFile);
 
   const handleChange = (key: string, value: unknown) => {
     pushHistory();
@@ -119,6 +131,79 @@ export function NodeConfigSidebar() {
                   </p>
                 )}
               </>
+            ) : def.type === "FileInput" && field.key === "fileName" ? (
+              <div className="flex flex-col gap-2">
+                <input
+                  type="file"
+                  accept=".csv,.json,application/json,text/csv"
+                  className="block w-full text-xs text-slate-300 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:bg-white/10 file:text-white hover:file:bg-white/15"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+
+                    const maxBytes = 5 * 1024 * 1024; // 5MB
+                    if (file.size > maxBytes) {
+                      window.alert("File too large (max 5MB for now).");
+                      e.currentTarget.value = "";
+                      return;
+                    }
+
+                    const text = await file.text();
+                    const format = guessFormatFromName(file.name);
+
+                    // Store file in local (non-persisted) store
+                    setFile(node.id, {
+                      name: file.name,
+                      format,
+                      text,
+                      size: file.size,
+                      updatedAt: Date.now(),
+                    });
+
+                    // Persist metadata only in graph config (safe to save/share)
+                    handleChange("fileName", file.name);
+                    handleChange("format", format);
+                  }}
+                />
+
+                {(config.fileName as string) ? (
+                  <div
+                    className="rounded-md px-2.5 py-2"
+                    style={{
+                      background: "#161b27",
+                      border: "1px solid #2a3347",
+                    }}
+                  >
+                    <p className="text-xs text-slate-200 truncate">
+                      {(config.fileName as string) ?? ""}
+                    </p>
+                    <p className="text-[11px] text-slate-600 mt-0.5">
+                      Local upload {nodeFile ? "loaded" : "missing"} ·{" "}
+                      {(config.format as string) || "csv"}
+                    </p>
+                    <div className="mt-2 flex items-center gap-2">
+                      <button
+                        type="button"
+                        className="h-7 px-2.5 rounded-md text-[11px] font-semibold text-white border border-white/10 hover:bg-white/5 transition-colors"
+                        onClick={() => {
+                          clearFile(node.id);
+                        }}
+                      >
+                        Clear upload
+                      </button>
+                      {!nodeFile && (
+                        <span className="text-[11px] text-amber-400">
+                          Re-upload before running.
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-slate-600">
+                    Upload a file to use this node.
+                  </p>
+                )}
+              </div>
             ) : field.type === "text" || field.type === "expression" ? (
               <input
                 type="text"
