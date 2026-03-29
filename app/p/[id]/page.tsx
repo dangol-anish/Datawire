@@ -1,10 +1,10 @@
 // app/p/[id]/page.tsx
 import { supabaseServer } from "@/lib/supabaseServer";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { SharedViewClient } from "./SharedViewClient";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/nextAuthOptions";
-import { canViewPipeline, getPipelineById } from "@/lib/pipelineAccess";
+import { canEditPipeline, canViewPipeline, getPipelineById } from "@/lib/pipelineAccess";
 
 export default async function SharedViewPage({
   params,
@@ -15,11 +15,21 @@ export default async function SharedViewPage({
   const pipeline = await getPipelineById(params.id).catch(() => null);
   if (!pipeline) notFound();
 
+  const session = await getServerSession(authOptions);
+
+  // If the user has edit access, prefer the editor route over the shared view.
+  if (session?.user?.id) {
+    const canEdit = await canEditPipeline({
+      pipelineId: params.id,
+      userId: session.user.id,
+    });
+    if (canEdit) redirect(`/editor/${params.id}`);
+  }
+
   if (pipeline.is_public) {
     return <SharedViewClient pipeline={pipeline} />;
   }
 
-  const session = await getServerSession(authOptions);
   if (!session) notFound();
 
   const ok = await canViewPipeline({

@@ -5,19 +5,20 @@ import React, { useEffect, useMemo, useState } from "react";
 type Collaborator = {
   user_id: string;
   role: "viewer" | "editor";
-  created_at: string;
-  updated_at: string;
+  created_at?: string;
+  updated_at?: string;
 };
 
 type AccessRequest = {
   id: string;
   user_id: string;
   status: "pending" | "approved" | "denied";
-  created_at: string;
-  updated_at: string;
+  created_at?: string;
+  updated_at?: string;
 };
 
-function formatDate(iso: string) {
+function formatDate(iso?: string | null) {
+  if (!iso) return "";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
   return d.toLocaleString(undefined, {
@@ -257,7 +258,7 @@ export function ShareDialog({
                               {r.user_id}
                             </p>
                             <p className="text-xs text-slate-600">
-                              {r.status} · {formatDate(r.updated_at)}
+                              {r.status} · {formatDate(r.updated_at ?? r.created_at)}
                             </p>
                           </div>
                           {r.status === "pending" && (
@@ -303,7 +304,7 @@ export function ShareDialog({
                               {c.user_id}
                             </p>
                             <p className="text-xs text-slate-600">
-                              {c.role} · {formatDate(c.updated_at)}
+                              {c.role} · {formatDate(c.updated_at ?? c.created_at)}
                             </p>
                           </div>
                           <select
@@ -339,4 +340,3 @@ export function ShareDialog({
     </div>
   );
 }
-

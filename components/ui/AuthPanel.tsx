@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState } from "react";
 import { signIn } from "next-auth/react";
+import { useSearchParams } from "next/navigation";
 
 async function safeJson(res: Response) {
   try {
@@ -12,6 +13,9 @@ async function safeJson(res: Response) {
 }
 
 export function AuthPanel() {
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get("callbackUrl") || "/";
+
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -51,7 +55,7 @@ export function AuthPanel() {
       const resp = await signIn("credentials", {
         email: email.trim(),
         password,
-        callbackUrl: "/",
+        callbackUrl,
         redirect: true,
       });
 
@@ -161,13 +165,13 @@ export function AuthPanel() {
 
       <div className="w-full flex flex-col gap-2">
         <button
-          onClick={() => signIn("google", { callbackUrl: "/" })}
+          onClick={() => signIn("google", { callbackUrl })}
           className="w-full bg-white/5 hover:bg-white/10 text-white font-semibold py-2.5 px-6 rounded-lg transition-colors flex items-center justify-center gap-3 border border-white/10 hover:border-white/20"
         >
           Continue with Google
         </button>
         <button
-          onClick={() => signIn("github", { callbackUrl: "/" })}
+          onClick={() => signIn("github", { callbackUrl })}
           className="w-full bg-white/5 hover:bg-white/10 text-white font-semibold py-2.5 px-6 rounded-lg transition-colors flex items-center justify-center gap-3 border border-white/10 hover:border-white/20"
         >
           Continue with GitHub
@@ -176,4 +180,3 @@ export function AuthPanel() {
     </div>
   );
 }
-

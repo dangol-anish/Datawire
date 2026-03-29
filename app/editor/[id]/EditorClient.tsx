@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { useGraphStore } from "@/store/graphStore";
 import { useExecutionStore } from "@/store/executionStore";
 import { EditorCanvas } from "@/components/canvas/EditorCanvas";
@@ -30,6 +31,7 @@ export function EditorClient({ pipeline }: Props) {
   const { setPipelineStatus, setNodeStatus, setResult } = useExecutionStore();
   const workerRef = useRef<Worker | null>(null);
   const { data: session } = useSession();
+  const router = useRouter();
   const myUserId = session?.user?.id;
   const myUsername = session?.user?.name || session?.user?.email || "User";
   const [shareOpen, setShareOpen] = React.useState(false);
@@ -61,6 +63,38 @@ export function EditorClient({ pipeline }: Props) {
       setEdges(pipeline.graph_json.edges ?? []);
     }
   }, [pipeline.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // If the owner downgrades this user from editor -> viewer, auto-switch them to the read-only view.
+  useEffect(() => {
+    if (!myUserId) return;
+    if (pipeline.is_public) return;
+
+    let cancelled = false;
+
+    const check = async () => {
+      try {
+        const res = await fetch(`/api/pipelines/${pipeline.id}/me`, {
+          cache: "no-store",
+        });
+        if (!res.ok) return;
+        const body = (await res.json()) as { canEdit?: boolean; canView?: boolean };
+        if (cancelled) return;
+        if (body?.canEdit === false) {
+          if (body?.canView) router.replace(`/p/${pipeline.id}`);
+          else router.replace("/");
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    check();
+    const t = window.setInterval(check, 4000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(t);
+    };
+  }, [myUserId, pipeline.id, pipeline.is_public, router]);
 
   // Spin up the Web Worker once
   useEffect(() => {

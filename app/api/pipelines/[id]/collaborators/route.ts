@@ -17,14 +17,29 @@ export async function GET(
   });
   if (!owner) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  const { data, error } = await supabaseServer
+  const primary = await supabaseServer
     .from("pipeline_collaborators")
-    .select("user_id, role, created_at, updated_at")
+    .select("user_id, role, created_at")
     .eq("pipeline_id", params.id)
-    .order("updated_at", { ascending: false });
+    .order("created_at", { ascending: false });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ collaborators: data ?? [] });
+  if (!primary.error) {
+    return NextResponse.json({ collaborators: primary.data ?? [] });
+  }
+
+  // Be tolerant of schemas that omit timestamp columns.
+  if (primary.error.message.toLowerCase().includes("created_at")) {
+    const fallback = await supabaseServer
+      .from("pipeline_collaborators")
+      .select("user_id, role")
+      .eq("pipeline_id", params.id);
+    if (fallback.error) {
+      return NextResponse.json({ error: fallback.error.message }, { status: 500 });
+    }
+    return NextResponse.json({ collaborators: fallback.data ?? [] });
+  }
+
+  return NextResponse.json({ error: primary.error.message }, { status: 500 });
 }
 
 export async function PATCH(
@@ -66,7 +81,6 @@ export async function PATCH(
         pipeline_id: params.id,
         user_id: userId,
         role: nextRole,
-        updated_at: new Date().toISOString(),
       },
       { onConflict: "pipeline_id,user_id" },
     );
@@ -76,4 +90,3 @@ export async function PATCH(
 
   return NextResponse.json({ error: "Invalid action" }, { status: 400 });
 }
-

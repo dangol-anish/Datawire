@@ -37,7 +37,7 @@ export async function PATCH(
 
   const { error: updErr } = await supabaseServer
     .from("pipeline_access_requests")
-    .update({ status: nextStatus, updated_at: new Date().toISOString() })
+    .update({ status: nextStatus })
     .eq("id", params.requestId);
 
   if (updErr) return NextResponse.json({ error: updErr.message }, { status: 500 });
@@ -50,7 +50,6 @@ export async function PATCH(
           pipeline_id: params.id,
           user_id: requestRow.user_id,
           role: "editor",
-          updated_at: new Date().toISOString(),
         },
         { onConflict: "pipeline_id,user_id" },
       );
@@ -59,4 +58,3 @@ export async function PATCH(
 
   return NextResponse.json({ ok: true });
 }
-

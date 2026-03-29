@@ -6,6 +6,7 @@ import "reactflow/dist/style.css";
 import { PipelineNodeCard } from "@/components/canvas/PipelineNodeCard";
 import { NODE_LIST } from "@/nodes/index";
 import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 
 const nodeTypes: Record<string, React.ComponentType<any>> = {};
 NODE_LIST.forEach((def) => {
@@ -16,8 +17,42 @@ export function SharedViewClient({ pipeline }: { pipeline: any }) {
   const nodes = pipeline.graph_json?.nodes ?? [];
   const edges = pipeline.graph_json?.edges ?? [];
   const { data: session } = useSession();
+  const router = useRouter();
   const [requesting, setRequesting] = useState(false);
   const [requested, setRequested] = useState(false);
+  const [promoted, setPromoted] = useState(false);
+
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    if (pipeline.is_public) return;
+
+    let cancelled = false;
+
+    const check = async () => {
+      try {
+        const res = await fetch(`/api/pipelines/${pipeline.id}/me`, {
+          cache: "no-store",
+        });
+        if (!res.ok) return;
+        const body = (await res.json()) as { canEdit?: boolean };
+        if (cancelled) return;
+        if (body?.canEdit) {
+          setPromoted(true);
+          router.replace(`/editor/${pipeline.id}`);
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    // Run immediately, then poll briefly to catch role changes without requiring a manual refresh.
+    check();
+    const t = window.setInterval(check, 4000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(t);
+    };
+  }, [pipeline.id, pipeline.is_public, router, session?.user?.id]);
 
   const requestEditor = async () => {
     if (requesting) return;
@@ -44,15 +79,21 @@ export function SharedViewClient({ pipeline }: { pipeline: any }) {
         {session?.user?.id && !pipeline.is_public && (
           <button
             onClick={requestEditor}
-            disabled={requesting || requested}
+            disabled={requesting || requested || promoted}
             className="h-8 px-3 rounded-md text-xs font-semibold disabled:opacity-60"
             style={{
-              background: requested ? "#1f2937" : "#6366f1",
+              background: promoted ? "#1f2937" : requested ? "#1f2937" : "#6366f1",
               color: "white",
             }}
             title="Request editor access from the owner"
           >
-            {requested ? "Request sent" : requesting ? "Requesting…" : "Request edit access"}
+            {promoted
+              ? "Opening editor…"
+              : requested
+                ? "Request sent"
+                : requesting
+                  ? "Requesting…"
+                  : "Request edit access"}
           </button>
         )}
       </div>

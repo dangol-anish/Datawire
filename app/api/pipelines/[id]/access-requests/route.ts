@@ -24,7 +24,6 @@ export async function POST(
       user_id: session.user.id,
       requested_role: "editor",
       status: "pending",
-      updated_at: new Date().toISOString(),
     },
     { onConflict: "pipeline_id,user_id,status" },
   );
@@ -46,13 +45,27 @@ export async function GET(
   });
   if (!owner) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  const { data, error } = await supabaseServer
+  const primary = await supabaseServer
     .from("pipeline_access_requests")
-    .select("id, user_id, status, created_at, updated_at")
+    .select("id, user_id, status, created_at")
     .eq("pipeline_id", params.id)
-    .order("updated_at", { ascending: false });
+    .order("created_at", { ascending: false });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ requests: data ?? [] });
+  if (!primary.error) {
+    return NextResponse.json({ requests: primary.data ?? [] });
+  }
+
+  // Be tolerant of schemas that omit timestamp columns.
+  if (primary.error.message.toLowerCase().includes("created_at")) {
+    const fallback = await supabaseServer
+      .from("pipeline_access_requests")
+      .select("id, user_id, status")
+      .eq("pipeline_id", params.id);
+    if (fallback.error) {
+      return NextResponse.json({ error: fallback.error.message }, { status: 500 });
+    }
+    return NextResponse.json({ requests: fallback.data ?? [] });
+  }
+
+  return NextResponse.json({ error: primary.error.message }, { status: 500 });
 }
-
