@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/nextAuthOptions";
 import { generateInviteToken, hashInviteToken } from "@/lib/inviteTokens";
 import { isPipelineOwner } from "@/lib/pipelineAccess";
 import { getRequestOrigin } from "@/lib/requestOrigin";
-import { createSupabaseRlsClientForUser } from "@/lib/supabaseRlsServer";
+import { supabaseServer } from "@/lib/supabaseServer";
 
 export const runtime = "nodejs";
 
@@ -30,7 +30,7 @@ export async function POST(
   const token = generateInviteToken();
   const token_hash = hashInviteToken(token);
 
-  const supabase = await createSupabaseRlsClientForUser(session.user.id);
+  const supabase = supabaseServer;
 
   const { error } = await supabase.from("pipeline_invites").insert({
     pipeline_id: params.id,

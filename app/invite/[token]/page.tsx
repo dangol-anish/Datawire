@@ -2,7 +2,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/nextAuthOptions";
 import { redirect } from "next/navigation";
 import { hashInviteToken } from "@/lib/inviteTokens";
-import { createSupabaseRlsClientForUser } from "@/lib/supabaseRlsServer";
+import { supabaseServer } from "@/lib/supabaseServer";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +18,7 @@ export default async function InviteAcceptPage({
 
   const tokenHash = hashInviteToken(params.token);
 
-  const supabase = await createSupabaseRlsClientForUser(session.user.id);
+  const supabase = supabaseServer;
 
   const { data: invite, error } = await supabase
     .from("pipeline_invites")

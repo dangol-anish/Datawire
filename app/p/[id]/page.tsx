@@ -17,10 +17,6 @@ export default async function SharedViewPage({
 }: {
   params: { id: string };
 }) {
-  // Public pipelines can be viewed without auth. Private pipelines require collaborator access.
-  const pipeline = await getPipelineByIdPublic(params.id);
-  if (!pipeline) notFound();
-
   const session = await getServerSession(authOptions);
 
   // If the user has edit access, prefer the editor route over the shared view.
@@ -32,10 +28,13 @@ export default async function SharedViewPage({
     if (canEdit) redirect(`/editor/${params.id}`);
   }
 
-  if (pipeline.is_public) {
-    return <SharedViewClient pipeline={pipeline} />;
+  // Public pipelines can be viewed without auth.
+  const publicPipeline = await getPipelineByIdPublic(params.id);
+  if (publicPipeline) {
+    return <SharedViewClient pipeline={publicPipeline} />;
   }
 
+  // Private pipelines require collaborator access.
   if (!session) notFound();
 
   const ok = await canViewPipeline({

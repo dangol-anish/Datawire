@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/nextAuthOptions";
-import { createSupabaseRlsClientForUser } from "@/lib/supabaseRlsServer";
+import { supabaseServer } from "@/lib/supabaseServer";
 
 export const runtime = "nodejs";
 
@@ -22,8 +22,9 @@ export async function POST() {
     );
   }
 
-  const supabase = await createSupabaseRlsClientForUser(userId);
-  const { data, error } = await supabase
+  // Use service role client directly — safe because this is a server-only
+  // route and we've already verified the session above.
+  const { data, error } = await supabaseServer
     .from("pipelines")
     .insert({
       user_id: userId,

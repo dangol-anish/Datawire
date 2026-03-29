@@ -3,7 +3,7 @@ import { authOptions } from "@/lib/nextAuthOptions";
 import { redirect } from "next/navigation";
 import { HomeClient } from "./HomeClient";
 import { PIPELINE_TEMPLATES } from "@/lib/pipelineTemplates";
-import { createSupabaseRlsClientForUser } from "@/lib/supabaseRlsServer";
+import { supabaseServer } from "@/lib/supabaseServer";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +11,7 @@ export default async function HomePage() {
   const session = await getServerSession(authOptions);
   if (!session) redirect("/login");
 
-  const supabase = await createSupabaseRlsClientForUser(session.user.id);
+  const supabase = supabaseServer;
 
   const ownedPrimary = await supabase
     .from("pipelines")

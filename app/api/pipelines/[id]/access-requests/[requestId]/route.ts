@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/nextAuthOptions";
 import { isPipelineOwner } from "@/lib/pipelineAccess";
-import { createSupabaseRlsClientForUser } from "@/lib/supabaseRlsServer";
+import { supabaseServer } from "@/lib/supabaseServer";
 
 export const runtime = "nodejs";
 
@@ -19,7 +19,7 @@ export async function PATCH(
   });
   if (!owner) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  const supabase = await createSupabaseRlsClientForUser(session.user.id);
+  const supabase = supabaseServer;
 
   const body = await req.json().catch(() => ({}));
   const action = body?.action as string | undefined; // approve|deny

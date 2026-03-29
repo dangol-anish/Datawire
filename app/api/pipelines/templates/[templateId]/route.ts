@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/nextAuthOptions";
 import { getTemplateById } from "@/lib/pipelineTemplates";
-import { createSupabaseRlsClientForUser } from "@/lib/supabaseRlsServer";
+import { supabaseServer } from "@/lib/supabaseServer";
 
 export const runtime = "nodejs";
 
@@ -30,7 +30,7 @@ export async function POST(
   }
 
   const name = `${template.name}`;
-  const supabase = await createSupabaseRlsClientForUser(userId);
+  const supabase = supabaseServer;
   const { data, error } = await supabase
     .from("pipelines")
     .insert({
