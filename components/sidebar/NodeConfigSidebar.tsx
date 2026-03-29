@@ -26,6 +26,10 @@ export function NodeConfigSidebar() {
     selectedNodeId ? s.nodeStatuses[selectedNodeId] : "idle",
   );
   const openResultsModal = useExecutionStore((s) => s.openResultsModal);
+  const files = useFileStore((s) => s.files);
+  const setFile = useFileStore((s) => s.setFile);
+  const clearFile = useFileStore((s) => s.clearFile);
+  const nodeFile = selectedNodeId ? files[selectedNodeId] : undefined;
 
   if (!node) {
     return (
@@ -51,11 +55,6 @@ export function NodeConfigSidebar() {
   const resultTable: DataTable | null =
     result && !isExecutionError(result as any) ? (result as any) : null;
   const availableColumns = resultTable?.columns ?? [];
-  const nodeFile = useFileStore((s) =>
-    selectedNodeId ? s.files[selectedNodeId] : undefined,
-  );
-  const setFile = useFileStore((s) => s.setFile);
-  const clearFile = useFileStore((s) => s.clearFile);
 
   const handleChange = (key: string, value: unknown) => {
     pushHistory();
