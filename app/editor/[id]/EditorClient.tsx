@@ -27,7 +27,8 @@ interface Props {
 }
 
 export function EditorClient({ pipeline }: Props) {
-  const { setNodes, setEdges, setSelectedNodeId, pushHistory } = useGraphStore();
+  const { setNodes, setEdges, setSelectedNodeId, pushHistory, undo, redo } =
+    useGraphStore();
   const { setPipelineStatus, setNodeStatus, setResult } = useExecutionStore();
   const workerRef = useRef<Worker | null>(null);
   const { data: session } = useSession();
@@ -179,6 +180,63 @@ export function EditorClient({ pipeline }: Props) {
       window.alert(msg);
     }
   };
+
+  const isTypingInInput = () => {
+    const el = document.activeElement as HTMLElement | null;
+    if (!el) return false;
+    const tag = el.tagName?.toLowerCase();
+    if (tag === "input" || tag === "textarea" || tag === "select") return true;
+    return el.isContentEditable;
+  };
+
+  // Keyboard shortcuts: save/undo/redo/delete
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const key = e.key;
+      const metaOrCtrl = e.metaKey || e.ctrlKey;
+
+      // Never steal keystrokes while typing in a field (except meta/ctrl combos we handle).
+      const typing = isTypingInInput();
+
+      // Save: Cmd/Ctrl + S
+      if (metaOrCtrl && (key === "s" || key === "S")) {
+        e.preventDefault();
+        void handleSave();
+        return;
+      }
+
+      // Undo: Cmd/Ctrl + Z
+      if (metaOrCtrl && (key === "z" || key === "Z") && !e.shiftKey) {
+        if (typing) return;
+        e.preventDefault();
+        undo();
+        return;
+      }
+
+      // Redo: Cmd/Ctrl + Shift + Z OR Ctrl+Y
+      if (
+        (metaOrCtrl && (key === "z" || key === "Z") && e.shiftKey) ||
+        (e.ctrlKey && (key === "y" || key === "Y"))
+      ) {
+        if (typing) return;
+        e.preventDefault();
+        redo();
+        return;
+      }
+
+      // Delete selected node: Delete/Backspace (only when not typing)
+      if ((key === "Delete" || key === "Backspace") && !typing) {
+        const { selectedNodeId } = useGraphStore.getState();
+        if (!selectedNodeId) return;
+        e.preventDefault();
+        handleDeleteSelected();
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [undo, redo, pipeline.id]);
 
   const handleDeleteSelected = () => {
     const { selectedNodeId, nodes, edges } = useGraphStore.getState();
