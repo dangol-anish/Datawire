@@ -70,6 +70,9 @@ export const authOptions: NextAuthOptions = {
         return token;
       }
 
+      // Ensure existing sessions migrate to Supabase UUID even when `account` is undefined.
+      const hasUuid = typeof token.id === "string" && UUID_RE.test(token.id);
+
       if (account?.provider === "github" && account.providerAccountId) {
         // Persist GitHub id for reference/debugging
         token.githubId = account.providerAccountId;
@@ -98,6 +101,29 @@ export const authOptions: NextAuthOptions = {
             email: user?.email,
             name: user?.name,
             image: user?.image,
+          });
+        }
+      }
+
+      // Migration path for already-signed-in users (no `account` in callback):
+      // - If token already has provider ids, we can deterministically map to a Supabase UUID.
+      const hasUuidNow = typeof token.id === "string" && UUID_RE.test(token.id);
+      if (!hasUuidNow) {
+        if (typeof (token as any).githubId === "string") {
+          token.id = await getOrCreateSupabaseUserIdForGithub({
+            githubId: (token as any).githubId as string,
+            email: (token as any).email as any,
+            name: (token as any).name as any,
+            image: (token as any).picture as any,
+            login: null,
+          });
+        } else if (typeof (token as any).googleId === "string") {
+          token.id = await getOrCreateSupabaseUserIdForOAuth({
+            provider: "google",
+            providerAccountId: (token as any).googleId as string,
+            email: (token as any).email as any,
+            name: (token as any).name as any,
+            image: (token as any).picture as any,
           });
         }
       }
