@@ -7,14 +7,40 @@ function requireEnv(name: string) {
   return v;
 }
 
-function getJwtSecretBytes() {
+function base64UrlToBytes(input: string) {
+  const b64 = input.replace(/-/g, "+").replace(/_/g, "/");
+  const pad = b64.length % 4 ? "=".repeat(4 - (b64.length % 4)) : "";
+  // eslint-disable-next-line no-undef
+  return new Uint8Array(Buffer.from(b64 + pad, "base64"));
+}
+
+let cachedSigningKey: Uint8Array | null = null;
+
+async function getSupabaseJwtSigningKey() {
+  if (cachedSigningKey) return cachedSigningKey;
+
   const secret = process.env.SUPABASE_JWT_SECRET;
   if (!secret) {
     throw new Error(
-      "Missing SUPABASE_JWT_SECRET. This is required to run Supabase with RLS using NextAuth sessions.",
+      "Missing SUPABASE_JWT_SECRET. Set it from Supabase Project Settings → API → JWT Secret.",
     );
   }
-  return new TextEncoder().encode(secret);
+
+  // Supabase sometimes displays the JWT secret as `sb_secret_<base64url>`.
+  // In that case, the signing key is the decoded bytes of the suffix.
+  if (secret.startsWith("sb_secret_")) {
+    const rest = secret.slice("sb_secret_".length);
+    try {
+      cachedSigningKey = base64UrlToBytes(rest);
+      return cachedSigningKey;
+    } catch {
+      // fall through
+    }
+  }
+
+  // Default: treat as a raw string secret.
+  cachedSigningKey = new TextEncoder().encode(secret);
+  return cachedSigningKey;
 }
 
 export async function mintSupabaseAccessToken(userId: string) {
@@ -30,7 +56,7 @@ export async function mintSupabaseAccessToken(userId: string) {
     .setSubject(userId)
     .setIssuedAt(now)
     .setExpirationTime(exp)
-    .sign(getJwtSecretBytes());
+    .sign(await getSupabaseJwtSigningKey());
 }
 
 export async function createSupabaseRlsClientForUser(
@@ -38,7 +64,31 @@ export async function createSupabaseRlsClientForUser(
 ): Promise<SupabaseClient> {
   const url = requireEnv("NEXT_PUBLIC_SUPABASE_URL");
   const anon = requireEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY");
-  const token = await mintSupabaseAccessToken(userId);
+  let token: string | null = null;
+  try {
+    token = await mintSupabaseAccessToken(userId);
+  } catch (e: any) {
+    // Developer experience fallback:
+    // If local env vars are mismatched (common after rotating JWT secret), keep the app usable in dev by
+    // falling back to the service role key (bypasses RLS). Production should NOT do this.
+    const isProd = process.env.NODE_ENV === "production";
+    const svc = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!isProd && svc) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        "[datawire] Supabase RLS JWT mint failed; falling back to service role for local dev only:",
+        typeof e?.message === "string" ? e.message : e,
+      );
+      return createClient(url, svc, {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false,
+          detectSessionInUrl: false,
+        },
+      });
+    }
+    throw e;
+  }
 
   return createClient(url, anon, {
     auth: {
@@ -65,4 +115,3 @@ export function createSupabaseRlsPublicClient(): SupabaseClient {
     },
   });
 }
-

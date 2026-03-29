@@ -46,13 +46,14 @@ export function EditorClient({ pipeline }: Props) {
   );
   const addNodeRef = React.useRef<((nodeType: string) => void) | null>(null);
   const [collabEnabled, setCollabEnabled] = React.useState(false);
+  const [canBroadcast, setCanBroadcast] = React.useState(true);
 
   const { sendCursor, broadcastGraphEvent } = usePipelineCollaboration({
     pipelineId: pipeline.id,
     userId: myUserId,
     username: myUsername,
     enabled: collabEnabled,
-    canBroadcast: true,
+    canBroadcast,
   });
 
   const configDebounceRef = useRef<Record<string, number>>({});
@@ -95,7 +96,13 @@ export function EditorClient({ pipeline }: Props) {
         if (!res.ok) return;
         const body = (await res.json()) as { canEdit?: boolean; canView?: boolean };
         if (cancelled) return;
+        if (body?.canEdit === true) {
+          setCanBroadcast(true);
+          return;
+        }
+
         if (body?.canEdit === false) {
+          setCanBroadcast(false);
           if (body?.canView) router.replace(`/p/${pipeline.id}`);
           else router.replace("/");
         }
