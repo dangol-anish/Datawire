@@ -3,19 +3,27 @@
 import React from "react";
 import { NODE_LIST } from "@/nodes/index";
 
-export function NodePalette() {
+export function NodePalette({
+  mode = "sidebar",
+  onPick,
+}: {
+  mode?: "sidebar" | "picker";
+  onPick?: (nodeType: string) => void;
+}) {
   const onDragStart = (event: React.DragEvent, nodeType: string) => {
     event.dataTransfer.setData("application/datawire-node", nodeType);
     event.dataTransfer.effectAllowed = "move";
   };
 
+  const isPicker = mode === "picker";
+
   return (
     <div
       className="flex flex-col gap-1 p-3 overflow-y-auto flex-shrink-0"
       style={{
-        width: 200,
+        width: isPicker ? "100%" : 200,
         background: "#0d0f14",
-        borderRight: "1px solid #1e2330",
+        borderRight: isPicker ? "none" : "1px solid #1e2330",
       }}
     >
       <p
@@ -26,24 +34,28 @@ export function NodePalette() {
       </p>
 
       {NODE_LIST.map((def) => (
-        <div
+        <button
           key={def.type}
-          draggable
-          onDragStart={(e) => onDragStart(e, def.type)}
-          className="group flex items-start gap-2.5 rounded-lg px-2.5 py-2 cursor-grab active:cursor-grabbing select-none"
+          type="button"
+          draggable={!isPicker}
+          onDragStart={!isPicker ? (e) => onDragStart(e, def.type) : undefined}
+          onClick={isPicker ? () => onPick?.(def.type) : undefined}
+          className="group flex items-start gap-2.5 rounded-lg px-2.5 py-2 select-none text-left"
           style={{
             border: "1px solid #1e2330",
             background: "#0d0f14",
             transition: "background 0.12s, border-color 0.12s",
+            cursor: isPicker ? "pointer" : "grab",
           }}
           onMouseEnter={(e) => {
-            (e.currentTarget as HTMLDivElement).style.background = "#161b27";
-            (e.currentTarget as HTMLDivElement).style.borderColor = "#2a3347";
+            (e.currentTarget as HTMLButtonElement).style.background = "#161b27";
+            (e.currentTarget as HTMLButtonElement).style.borderColor = "#2a3347";
           }}
           onMouseLeave={(e) => {
-            (e.currentTarget as HTMLDivElement).style.background = "#0d0f14";
-            (e.currentTarget as HTMLDivElement).style.borderColor = "#1e2330";
+            (e.currentTarget as HTMLButtonElement).style.background = "#0d0f14";
+            (e.currentTarget as HTMLButtonElement).style.borderColor = "#1e2330";
           }}
+          title={isPicker ? "Tap to add this node" : undefined}
         >
           {/* Color dot */}
           <div
@@ -58,7 +70,14 @@ export function NodePalette() {
               {def.description}
             </p>
           </div>
-        </div>
+          {isPicker && (
+            <div className="ml-auto flex items-center">
+              <span className="text-[11px] font-semibold text-slate-400 group-hover:text-white transition-colors">
+                Add
+              </span>
+            </div>
+          )}
+        </button>
       ))}
     </div>
   );

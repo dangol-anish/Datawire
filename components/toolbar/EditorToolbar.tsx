@@ -11,6 +11,7 @@ interface ToolbarProps {
   onDeleteSelected: () => void;
   onClear: () => void;
   onShare?: () => void;
+  className?: string;
 }
 
 export function EditorToolbar({
@@ -20,6 +21,7 @@ export function EditorToolbar({
   onDeleteSelected,
   onClear,
   onShare,
+  className,
 }: ToolbarProps) {
   const { undo, redo, history, future } = useGraphStore();
   const status = useExecutionStore((s) => s.pipelineStatus);
@@ -29,7 +31,7 @@ export function EditorToolbar({
 
   return (
     <div
-      className="flex items-center gap-2 px-4 h-12 flex-shrink-0"
+      className={`flex items-center gap-2 px-4 h-12 flex-shrink-0 ${className ?? ""}`}
       style={{
         background: "#0d0f14",
         borderBottom: "1px solid #1e2330",

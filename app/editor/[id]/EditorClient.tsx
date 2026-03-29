@@ -13,6 +13,8 @@ import { ResultsModal } from "@/components/results/ResultsModal";
 import { usePipelineCollaboration } from "@/hooks/usePipelineCollaboration";
 import { ShareDialog } from "@/components/share/ShareDialog";
 import { useFileStore } from "@/store/fileStore";
+import { MobileDrawer } from "@/components/ui/MobileDrawer";
+import { NodePalette } from "@/components/canvas/NodePalette";
 
 interface Pipeline {
   id: string;
@@ -29,6 +31,8 @@ interface Props {
 export function EditorClient({ pipeline }: Props) {
   const { setNodes, setEdges, setSelectedNodeId, pushHistory, undo, redo } =
     useGraphStore();
+  const historyLen = useGraphStore((s) => s.history.length);
+  const futureLen = useGraphStore((s) => s.future.length);
   const { setPipelineStatus, setNodeStatus, setResult } = useExecutionStore();
   const workerRef = useRef<Worker | null>(null);
   const { data: session } = useSession();
@@ -37,6 +41,10 @@ export function EditorClient({ pipeline }: Props) {
   const myUsername = session?.user?.name || session?.user?.email || "User";
   const [shareOpen, setShareOpen] = React.useState(false);
   const isOwner = Boolean(myUserId && pipeline.user_id === myUserId);
+  const [mobilePanel, setMobilePanel] = React.useState<null | "nodes" | "config">(
+    null,
+  );
+  const addNodeRef = React.useRef<((nodeType: string) => void) | null>(null);
 
   const { sendCursor, broadcastGraphEvent } = usePipelineCollaboration({
     pipelineId: pipeline.id,
@@ -272,7 +280,51 @@ export function EditorClient({ pipeline }: Props) {
 
   return (
     <div className="flex flex-col h-screen bg-[#0d0f14] overflow-hidden">
+      {/* Mobile header */}
+      <div
+        className="md:hidden flex items-center gap-2 px-4 h-12 flex-shrink-0"
+        style={{ borderBottom: "1px solid #1e2330" }}
+      >
+        <div
+          className="w-6 h-6 rounded-md flex items-center justify-center"
+          style={{ background: "#6366f1" }}
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <circle cx="3" cy="7" r="2" fill="white" />
+            <circle cx="11" cy="3" r="2" fill="white" />
+            <circle cx="11" cy="11" r="2" fill="white" />
+            <line
+              x1="5"
+              y1="6.5"
+              x2="9"
+              y2="3.5"
+              stroke="white"
+              strokeWidth="1.2"
+            />
+            <line
+              x1="5"
+              y1="7.5"
+              x2="9"
+              y2="10.5"
+              stroke="white"
+              strokeWidth="1.2"
+            />
+          </svg>
+        </div>
+        <span className="text-sm font-semibold text-slate-200 truncate">
+          {pipeline.name}
+        </span>
+        <div className="flex-1" />
+        <button
+          onClick={() => setShareOpen(true)}
+          className="h-8 px-3 rounded-md text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 transition-colors"
+        >
+          Share
+        </button>
+      </div>
+
       <EditorToolbar
+        className="hidden md:flex"
         pipelineName={pipeline.name}
         onRun={handleRun}
         onSave={handleSave}
@@ -280,10 +332,17 @@ export function EditorClient({ pipeline }: Props) {
         onClear={handleClear}
         onShare={() => setShareOpen(true)}
       />
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden md:pb-0 pb-14">
+        <div className="hidden md:block">
+          <NodePalette />
+        </div>
         <div className="flex-1 overflow-hidden">
           <EditorCanvas
             myUserId={myUserId}
+            showPalette={false}
+            registerAddNode={(fn) => {
+              addNodeRef.current = fn;
+            }}
             onCursorMove={(pos) => {
               sendCursor(pos);
             }}
@@ -304,12 +363,98 @@ export function EditorClient({ pipeline }: Props) {
             }
           />
         </div>
+        <div className="hidden md:block">
+          <NodeConfigSidebar
+            onNodeConfigChange={(nodeId, config) => {
+              broadcastConfigChange(nodeId, config);
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Mobile bottom bar */}
+      <div
+        className="md:hidden fixed inset-x-0 bottom-0 z-40"
+        style={{
+          background: "#0d0f14",
+          borderTop: "1px solid #1e2330",
+        }}
+      >
+        <div className="flex items-center gap-2 px-3 h-14">
+          <button
+            onClick={() => setMobilePanel(mobilePanel === "nodes" ? null : "nodes")}
+            className="flex flex-col items-center justify-center w-16 h-10 rounded-lg text-xs text-slate-300 hover:text-white hover:bg-white/5 border border-white/10"
+          >
+            Nodes
+          </button>
+          <button
+            onClick={() =>
+              setMobilePanel(mobilePanel === "config" ? null : "config")
+            }
+            className="flex flex-col items-center justify-center w-16 h-10 rounded-lg text-xs text-slate-300 hover:text-white hover:bg-white/5 border border-white/10"
+          >
+            Config
+          </button>
+          <div className="flex-1" />
+          <button
+            onClick={undo}
+            className="w-10 h-10 rounded-lg text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 disabled:opacity-40"
+            disabled={historyLen === 0}
+            title="Undo"
+          >
+            ↺
+          </button>
+          <button
+            onClick={redo}
+            className="w-10 h-10 rounded-lg text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 disabled:opacity-40"
+            disabled={futureLen === 0}
+            title="Redo"
+          >
+            ↻
+          </button>
+          <button
+            onClick={handleSave}
+            className="h-10 px-3 rounded-lg text-xs font-semibold text-white border border-white/10 hover:bg-white/5"
+          >
+            Save
+          </button>
+          <button
+            onClick={handleRun}
+            className="h-10 px-4 rounded-lg text-xs font-semibold text-white"
+            style={{ background: "#6366f1" }}
+          >
+            Run
+          </button>
+        </div>
+      </div>
+
+      <MobileDrawer
+        open={mobilePanel === "nodes"}
+        title="Nodes"
+        onClose={() => setMobilePanel(null)}
+      >
+        <NodePalette
+          mode="picker"
+          onPick={(type) => {
+            addNodeRef.current?.(type);
+            setMobilePanel(null);
+          }}
+        />
+      </MobileDrawer>
+
+      <MobileDrawer
+        open={mobilePanel === "config"}
+        title="Node Config"
+        onClose={() => setMobilePanel(null)}
+      >
         <NodeConfigSidebar
+          variant="drawer"
           onNodeConfigChange={(nodeId, config) => {
             broadcastConfigChange(nodeId, config);
           }}
         />
-      </div>
+      </MobileDrawer>
+
       <ResultsModal />
       <ShareDialog
         open={shareOpen}

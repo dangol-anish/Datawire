@@ -45,6 +45,8 @@ export function EditorCanvas({
   onNodeRemoved,
   onEdgeAdded,
   onEdgeRemoved,
+  showPalette = true,
+  registerAddNode,
 }: {
   onCursorMove?: (pos: { x: number; y: number }) => void;
   myUserId?: string;
@@ -53,6 +55,8 @@ export function EditorCanvas({
   onNodeRemoved?: (nodeId: string) => void;
   onEdgeAdded?: (edge: PipelineEdge) => void;
   onEdgeRemoved?: (edgeId: string) => void;
+  showPalette?: boolean;
+  registerAddNode?: ((fn: ((nodeType: string) => void) | null) => void) | null;
 }) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [reactFlowInstance, setReactFlowInstance] =
@@ -168,6 +172,42 @@ export function EditorCanvas({
     [reactFlowInstance, pushHistory, onNodeAdded],
   );
 
+  const addNodeAtCenter = useCallback(
+    (nodeType: string) => {
+      if (!reactFlowInstance || !reactFlowWrapper.current) return;
+      const def = NODE_REGISTRY[nodeType];
+      if (!def) return;
+
+      const wrapperBounds = reactFlowWrapper.current.getBoundingClientRect();
+      const position = reactFlowInstance.screenToFlowPosition({
+        x: wrapperBounds.width / 2,
+        y: wrapperBounds.height / 2,
+      });
+
+      const newNode: PipelineNode = {
+        id: generateNodeId(),
+        type: nodeType,
+        position,
+        data: {
+          type: nodeType,
+          label: def.label,
+          config: {},
+        },
+      };
+
+      pushHistory();
+      const currentNodes = useGraphStore.getState().nodes;
+      useGraphStore.getState().setNodes([...currentNodes, newNode]);
+      onNodeAdded?.(newNode);
+    },
+    [reactFlowInstance, pushHistory, onNodeAdded],
+  );
+
+  React.useEffect(() => {
+    registerAddNode?.(addNodeAtCenter);
+    return () => registerAddNode?.(null);
+  }, [addNodeAtCenter, registerAddNode]);
+
   const handleNodesChange = useCallback(
     (changes: NodeChange[]) => {
       const removed = changes.filter((c) => c.type === "remove").map((c) => c.id);
@@ -200,7 +240,7 @@ export function EditorCanvas({
   return (
     <div className="relative flex h-full w-full">
       {/* Node palette on the left */}
-      <NodePalette />
+      {showPalette && <NodePalette />}
 
       {/* Main canvas area */}
       <div ref={reactFlowWrapper} className="flex-1 h-full" onMouseMove={onMouseMove}>

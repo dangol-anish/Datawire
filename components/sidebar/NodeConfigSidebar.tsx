@@ -17,8 +17,10 @@ function guessFormatFromName(name: string): "csv" | "json" {
 
 export function NodeConfigSidebar({
   onNodeConfigChange,
+  variant = "sidebar",
 }: {
   onNodeConfigChange?: (nodeId: string, config: Record<string, unknown>) => void;
+  variant?: "sidebar" | "drawer";
 }) {
   const { selectedNodeId, nodes, updateNodeConfig, pushHistory } =
     useGraphStore();
@@ -34,14 +36,15 @@ export function NodeConfigSidebar({
   const setFile = useFileStore((s) => s.setFile);
   const clearFile = useFileStore((s) => s.clearFile);
   const nodeFile = selectedNodeId ? files[selectedNodeId] : undefined;
+  const isDrawer = variant === "drawer";
 
   if (!node) {
     return (
       <div
         className="flex flex-col items-center justify-center h-full p-6"
         style={{
-          width: 260,
-          borderLeft: "1px solid #1e2330",
+          width: isDrawer ? "100%" : 260,
+          borderLeft: isDrawer ? "none" : "1px solid #1e2330",
           background: "#0d0f14",
         }}
       >
@@ -71,8 +74,8 @@ export function NodeConfigSidebar({
     <div
       className="flex flex-col h-full overflow-y-auto"
       style={{
-        width: 260,
-        borderLeft: "1px solid #1e2330",
+        width: isDrawer ? "100%" : 260,
+        borderLeft: isDrawer ? "none" : "1px solid #1e2330",
         background: "#0d0f14",
       }}
     >
