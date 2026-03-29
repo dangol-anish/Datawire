@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/nextAuthOptions";
-import { supabaseServer } from "@/lib/supabaseServer";
 import { canViewPipeline, isPipelineOwner } from "@/lib/pipelineAccess";
+import { createSupabaseRlsClientForUser } from "@/lib/supabaseRlsServer";
 
 export async function POST(
   _req: Request,
@@ -18,7 +18,8 @@ export async function POST(
   });
   if (!ok) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  const { error } = await supabaseServer.from("pipeline_access_requests").upsert(
+  const supabase = await createSupabaseRlsClientForUser(session.user.id);
+  const { error } = await supabase.from("pipeline_access_requests").upsert(
     {
       pipeline_id: params.id,
       user_id: session.user.id,
@@ -45,7 +46,8 @@ export async function GET(
   });
   if (!owner) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  const primary = await supabaseServer
+  const supabase = await createSupabaseRlsClientForUser(session.user.id);
+  const primary = await supabase
     .from("pipeline_access_requests")
     .select("id, user_id, status, created_at")
     .eq("pipeline_id", params.id)
@@ -57,7 +59,7 @@ export async function GET(
 
   // Be tolerant of schemas that omit timestamp columns.
   if (primary.error.message.toLowerCase().includes("created_at")) {
-    const fallback = await supabaseServer
+    const fallback = await supabase
       .from("pipeline_access_requests")
       .select("id, user_id, status")
       .eq("pipeline_id", params.id);

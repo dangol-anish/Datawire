@@ -1,15 +1,32 @@
-import { supabaseServer } from "@/lib/supabaseServer";
+import {
+  createSupabaseRlsClientForUser,
+  createSupabaseRlsPublicClient,
+} from "@/lib/supabaseRlsServer";
 
 export type CollaboratorRole = "viewer" | "editor";
 
-export async function getPipelineById(pipelineId: string) {
-  const { data, error } = await supabaseServer
+export async function getPipelineByIdPublic(pipelineId: string) {
+  const supabase = createSupabaseRlsPublicClient();
+  const { data, error } = await supabase
     .from("pipelines")
     .select("*")
     .eq("id", pipelineId)
-    .single();
+    .maybeSingle();
+  if (error) return null;
+  return data;
+}
 
-  if (error) throw new Error(error.message);
+export async function getPipelineByIdForUser(args: {
+  pipelineId: string;
+  userId: string;
+}) {
+  const supabase = await createSupabaseRlsClientForUser(args.userId);
+  const { data, error } = await supabase
+    .from("pipelines")
+    .select("*")
+    .eq("id", args.pipelineId)
+    .maybeSingle();
+  if (error) return null;
   return data;
 }
 
@@ -17,7 +34,7 @@ export async function isPipelineOwner(args: {
   pipelineId: string;
   userId: string;
 }) {
-  const pipeline = await getPipelineById(args.pipelineId);
+  const pipeline = await getPipelineByIdForUser(args);
   return pipeline?.user_id === args.userId;
 }
 
@@ -25,7 +42,8 @@ export async function getCollaboratorRole(args: {
   pipelineId: string;
   userId: string;
 }): Promise<CollaboratorRole | null> {
-  const { data, error } = await supabaseServer
+  const supabase = await createSupabaseRlsClientForUser(args.userId);
+  const { data, error } = await supabase
     .from("pipeline_collaborators")
     .select("role")
     .eq("pipeline_id", args.pipelineId)
@@ -45,7 +63,8 @@ export async function canViewPipeline(args: {
   pipelineId: string;
   userId: string;
 }) {
-  const pipeline = await getPipelineById(args.pipelineId);
+  // With RLS, a user can view if they can SELECT the pipeline row.
+  const pipeline = await getPipelineByIdForUser(args);
   if (!pipeline) return false;
   if (pipeline.is_public) return true;
   if (pipeline.user_id === args.userId) return true;
@@ -57,10 +76,9 @@ export async function canEditPipeline(args: {
   pipelineId: string;
   userId: string;
 }) {
-  const pipeline = await getPipelineById(args.pipelineId);
+  const pipeline = await getPipelineByIdForUser(args);
   if (!pipeline) return false;
   if (pipeline.user_id === args.userId) return true;
   const role = await getCollaboratorRole(args);
   return role === "editor";
 }
-

@@ -1,10 +1,16 @@
 // app/p/[id]/page.tsx
-import { supabaseServer } from "@/lib/supabaseServer";
 import { notFound, redirect } from "next/navigation";
 import { SharedViewClient } from "./SharedViewClient";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/nextAuthOptions";
-import { canEditPipeline, canViewPipeline, getPipelineById } from "@/lib/pipelineAccess";
+import {
+  canEditPipeline,
+  canViewPipeline,
+  getPipelineByIdForUser,
+  getPipelineByIdPublic,
+} from "@/lib/pipelineAccess";
+
+export const dynamic = "force-dynamic";
 
 export default async function SharedViewPage({
   params,
@@ -12,7 +18,7 @@ export default async function SharedViewPage({
   params: { id: string };
 }) {
   // Public pipelines can be viewed without auth. Private pipelines require collaborator access.
-  const pipeline = await getPipelineById(params.id).catch(() => null);
+  const pipeline = await getPipelineByIdPublic(params.id);
   if (!pipeline) notFound();
 
   const session = await getServerSession(authOptions);
@@ -38,5 +44,12 @@ export default async function SharedViewPage({
   });
   if (!ok) notFound();
 
-  return <SharedViewClient pipeline={pipeline} />;
+  // If private, load the full pipeline row for the viewer/editor.
+  const authedPipeline = await getPipelineByIdForUser({
+    pipelineId: params.id,
+    userId: session.user.id,
+  });
+  if (!authedPipeline) notFound();
+
+  return <SharedViewClient pipeline={authedPipeline} />;
 }

@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/nextAuthOptions";
-import { supabaseServer } from "@/lib/supabaseServer";
 import { isPipelineOwner } from "@/lib/pipelineAccess";
+import { createSupabaseRlsClientForUser } from "@/lib/supabaseRlsServer";
 
 export async function GET(
   _req: Request,
@@ -17,7 +17,8 @@ export async function GET(
   });
   if (!owner) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  const primary = await supabaseServer
+  const supabase = await createSupabaseRlsClientForUser(session.user.id);
+  const primary = await supabase
     .from("pipeline_collaborators")
     .select("user_id, role, created_at")
     .eq("pipeline_id", params.id)
@@ -29,7 +30,7 @@ export async function GET(
 
   // Be tolerant of schemas that omit timestamp columns.
   if (primary.error.message.toLowerCase().includes("created_at")) {
-    const fallback = await supabaseServer
+    const fallback = await supabase
       .from("pipeline_collaborators")
       .select("user_id, role")
       .eq("pipeline_id", params.id);
@@ -55,6 +56,8 @@ export async function PATCH(
   });
   if (!owner) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
+  const supabase = await createSupabaseRlsClientForUser(session.user.id);
+
   const body = await req.json().catch(() => ({}));
   const userId = body?.userId as string | undefined;
   const action = body?.action as string | undefined; // "setRole" | "remove"
@@ -65,7 +68,7 @@ export async function PATCH(
   }
 
   if (action === "remove") {
-    const { error } = await supabaseServer
+    const { error } = await supabase
       .from("pipeline_collaborators")
       .delete()
       .eq("pipeline_id", params.id)
@@ -76,7 +79,7 @@ export async function PATCH(
 
   if (action === "setRole") {
     const nextRole = role === "editor" ? "editor" : "viewer";
-    const { error } = await supabaseServer.from("pipeline_collaborators").upsert(
+    const { error } = await supabase.from("pipeline_collaborators").upsert(
       {
         pipeline_id: params.id,
         user_id: userId,

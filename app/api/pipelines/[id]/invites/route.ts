@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/nextAuthOptions";
-import { supabaseServer } from "@/lib/supabaseServer";
 import { generateInviteToken, hashInviteToken } from "@/lib/inviteTokens";
 import { isPipelineOwner } from "@/lib/pipelineAccess";
 import { getRequestOrigin } from "@/lib/requestOrigin";
+import { createSupabaseRlsClientForUser } from "@/lib/supabaseRlsServer";
 
 type InviteRole = "viewer" | "editor";
 
@@ -28,7 +28,9 @@ export async function POST(
   const token = generateInviteToken();
   const token_hash = hashInviteToken(token);
 
-  const { error } = await supabaseServer.from("pipeline_invites").insert({
+  const supabase = await createSupabaseRlsClientForUser(session.user.id);
+
+  const { error } = await supabase.from("pipeline_invites").insert({
     pipeline_id: params.id,
     created_by: session.user.id,
     role,

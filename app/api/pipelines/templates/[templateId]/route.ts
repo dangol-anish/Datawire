@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/nextAuthOptions";
-import { supabaseServer } from "@/lib/supabaseServer";
 import { getTemplateById } from "@/lib/pipelineTemplates";
+import { createSupabaseRlsClientForUser } from "@/lib/supabaseRlsServer";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -28,7 +28,8 @@ export async function POST(
   }
 
   const name = `${template.name}`;
-  const { data, error } = await supabaseServer
+  const supabase = await createSupabaseRlsClientForUser(userId);
+  const { data, error } = await supabase
     .from("pipelines")
     .insert({
       user_id: userId,
@@ -42,4 +43,3 @@ export async function POST(
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ id: data.id });
 }
-

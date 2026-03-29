@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/nextAuthOptions";
-import { supabaseServer } from "@/lib/supabaseServer";
 import { isPipelineOwner } from "@/lib/pipelineAccess";
+import { createSupabaseRlsClientForUser } from "@/lib/supabaseRlsServer";
 
 export async function PATCH(
   req: Request,
@@ -17,6 +17,8 @@ export async function PATCH(
   });
   if (!owner) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
+  const supabase = await createSupabaseRlsClientForUser(session.user.id);
+
   const body = await req.json().catch(() => ({}));
   const action = body?.action as string | undefined; // approve|deny
   if (action !== "approve" && action !== "deny") {
@@ -25,7 +27,7 @@ export async function PATCH(
 
   const nextStatus = action === "approve" ? "approved" : "denied";
 
-  const { data: requestRow, error: reqErr } = await supabaseServer
+  const { data: requestRow, error: reqErr } = await supabase
     .from("pipeline_access_requests")
     .select("id, user_id, status")
     .eq("pipeline_id", params.id)
@@ -35,7 +37,7 @@ export async function PATCH(
   if (reqErr) return NextResponse.json({ error: reqErr.message }, { status: 500 });
   if (!requestRow) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const { error: updErr } = await supabaseServer
+  const { error: updErr } = await supabase
     .from("pipeline_access_requests")
     .update({ status: nextStatus })
     .eq("id", params.requestId);
@@ -43,7 +45,7 @@ export async function PATCH(
   if (updErr) return NextResponse.json({ error: updErr.message }, { status: 500 });
 
   if (action === "approve") {
-    const { error: collabErr } = await supabaseServer
+    const { error: collabErr } = await supabase
       .from("pipeline_collaborators")
       .upsert(
         {

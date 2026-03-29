@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/nextAuthOptions";
-import { supabaseServer } from "@/lib/supabaseServer";
+import { createSupabaseRlsClientForUser } from "@/lib/supabaseRlsServer";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -20,16 +20,14 @@ export async function POST() {
     );
   }
 
-  const now = new Date().toISOString();
-  const { data, error } = await supabaseServer
+  const supabase = await createSupabaseRlsClientForUser(userId);
+  const { data, error } = await supabase
     .from("pipelines")
     .insert({
       user_id: userId,
       name: "Untitled pipeline",
       graph_json: { nodes: [], edges: [] },
       is_public: false,
-      created_at: now,
-      updated_at: now,
     })
     .select("id")
     .single();
@@ -40,4 +38,3 @@ export async function POST() {
 
   return NextResponse.json({ id: data.id });
 }
-

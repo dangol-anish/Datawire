@@ -1,8 +1,10 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/nextAuthOptions";
 import { redirect } from "next/navigation";
-import { supabaseServer } from "@/lib/supabaseServer";
 import { hashInviteToken } from "@/lib/inviteTokens";
+import { createSupabaseRlsClientForUser } from "@/lib/supabaseRlsServer";
+
+export const dynamic = "force-dynamic";
 
 export default async function InviteAcceptPage({
   params,
@@ -16,7 +18,9 @@ export default async function InviteAcceptPage({
 
   const tokenHash = hashInviteToken(params.token);
 
-  const { data: invite, error } = await supabaseServer
+  const supabase = await createSupabaseRlsClientForUser(session.user.id);
+
+  const { data: invite, error } = await supabase
     .from("pipeline_invites")
     .select("pipeline_id, role, expires_at, revoked_at")
     .eq("token_hash", tokenHash)
@@ -67,7 +71,7 @@ export default async function InviteAcceptPage({
   }
 
   // Upsert collaborator, do not downgrade editor->viewer.
-  const { data: existing } = await supabaseServer
+  const { data: existing } = await supabase
     .from("pipeline_collaborators")
     .select("role")
     .eq("pipeline_id", invite.pipeline_id)
@@ -78,7 +82,7 @@ export default async function InviteAcceptPage({
   const desiredRole = invite.role === "editor" ? "editor" : "viewer";
   const finalRole = existingRole === "editor" ? "editor" : desiredRole;
 
-  const { error: upsertError } = await supabaseServer
+  const { error: upsertError } = await supabase
     .from("pipeline_collaborators")
     .upsert(
     {

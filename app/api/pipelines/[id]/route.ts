@@ -2,8 +2,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/nextAuthOptions";
-import { supabaseServer } from "@/lib/supabaseServer";
 import { canEditPipeline } from "@/lib/pipelineAccess";
+import { createSupabaseRlsClientForUser } from "@/lib/supabaseRlsServer";
 
 export async function PATCH(
   req: NextRequest,
@@ -29,9 +29,10 @@ export async function PATCH(
     return NextResponse.json({ error: "Missing graph_json" }, { status: 400 });
   }
 
-  const { data, error } = await supabaseServer
+  const supabase = await createSupabaseRlsClientForUser(session.user.id);
+  const { data, error } = await supabase
     .from("pipelines")
-    .update({ graph_json, updated_at: new Date().toISOString() })
+    .update({ graph_json })
     .eq("id", params.id)
     .select("id");
 
