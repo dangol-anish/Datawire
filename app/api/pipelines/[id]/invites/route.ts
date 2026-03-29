@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/nextAuthOptions";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { generateInviteToken, hashInviteToken } from "@/lib/inviteTokens";
 import { isPipelineOwner } from "@/lib/pipelineAccess";
+import { getRequestOrigin } from "@/lib/requestOrigin";
 
 type InviteRole = "viewer" | "editor";
 
@@ -39,7 +40,6 @@ export async function POST(
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  const inviteUrl = `${req.nextUrl.origin}/invite/${token}`;
+  const inviteUrl = `${getRequestOrigin(req)}/invite/${token}`;
   return NextResponse.json({ inviteUrl, role, expiresAt });
 }
-
