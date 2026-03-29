@@ -5,16 +5,20 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
 import clsx from "clsx";
+import type { PipelineTemplate } from "@/lib/pipelineTemplates";
 
 type PipelineRow = {
   id: string;
   name: string;
   is_public: boolean;
   created_at: string;
-  updated_at: string;
+  updated_at?: string;
 };
 
-function formatDate(iso: string) {
+type SharedPipelineRow = PipelineRow & { role: "viewer" | "editor"; user_id?: string };
+
+function formatDate(iso?: string | null) {
+  if (!iso) return "";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
   return d.toLocaleString(undefined, {
@@ -26,13 +30,18 @@ function formatDate(iso: string) {
 
 export function HomeClient({
   pipelines,
+  sharedPipelines,
+  templates,
   user,
 }: {
   pipelines: PipelineRow[];
+  sharedPipelines: SharedPipelineRow[];
+  templates: PipelineTemplate[];
   user: { name?: string | null; email?: string | null; image?: string | null };
 }) {
   const router = useRouter();
   const [creating, setCreating] = useState(false);
+  const [templateBusy, setTemplateBusy] = useState<string | null>(null);
 
   const headerLabel = useMemo(() => {
     return user?.name || user?.email || "Account";
@@ -50,6 +59,21 @@ export function HomeClient({
       router.push(`/editor/${body.id}`);
     } finally {
       setCreating(false);
+    }
+  };
+
+  const createFromTemplate = async (templateId: string) => {
+    if (templateBusy) return;
+    setTemplateBusy(templateId);
+    try {
+      const res = await fetch(`/api/pipelines/templates/${templateId}`, {
+        method: "POST",
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body?.error ?? "Failed to create pipeline");
+      router.push(`/editor/${body.id}`);
+    } finally {
+      setTemplateBusy(null);
     }
   };
 
@@ -117,6 +141,57 @@ export function HomeClient({
           </button>
         </header>
 
+        {templates.length > 0 && (
+          <section className="mb-8">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-semibold text-slate-200">
+                Example pipelines
+              </h2>
+              <p className="text-xs text-slate-500">
+                Start from a working graph and tweak it.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {templates.map((t) => (
+                <div
+                  key={t.id}
+                  className="rounded-2xl border border-border bg-surface p-5 flex flex-col gap-3"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="w-2 h-2 rounded-full bg-emerald-500 mt-2" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-white truncate">
+                        {t.name}
+                      </p>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        {t.description}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 mt-1">
+                    <button
+                      onClick={() => createFromTemplate(t.id)}
+                      disabled={templateBusy !== null}
+                      className={clsx(
+                        "h-8 px-3 rounded-md text-xs font-semibold transition-colors border",
+                        templateBusy === t.id
+                          ? "bg-emerald-600/60 border-emerald-500/40 text-white/90 cursor-not-allowed"
+                          : "bg-emerald-600 border-emerald-500/40 hover:bg-emerald-500 text-white",
+                      )}
+                    >
+                      {templateBusy === t.id ? "Creating…" : "Use template"}
+                    </button>
+                    <div className="flex-1" />
+                    <span className="text-[11px] font-mono text-slate-600">
+                      {t.graph_json.nodes.length} nodes
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
         {pipelines.length === 0 ? (
           <div className="rounded-2xl border border-border bg-surface p-10">
             <h2 className="text-lg font-semibold">No pipelines yet</h2>
@@ -147,7 +222,7 @@ export function HomeClient({
                       {p.name}
                     </p>
                     <p className="text-xs text-slate-500 mt-0.5">
-                      Updated {formatDate(p.updated_at)}
+                      Updated {formatDate(p.updated_at ?? p.created_at)}
                       {p.is_public ? " · Public" : " · Private"}
                     </p>
                   </div>
@@ -179,8 +254,48 @@ export function HomeClient({
             ))}
           </div>
         )}
+
+        {sharedPipelines.length > 0 && (
+          <section className="mt-10">
+            <h2 className="text-sm font-semibold text-slate-200 mb-3">
+              Shared with you
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {sharedPipelines.map((p) => (
+                <div
+                  key={p.id}
+                  className="rounded-2xl border border-border bg-surface p-5 flex flex-col gap-3"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="w-2 h-2 rounded-full bg-fuchsia-500 mt-2" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-white truncate">
+                        {p.name}
+                      </p>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        {p.role} · Updated {formatDate(p.updated_at ?? p.created_at)}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 mt-1">
+                    <Link
+                      href={p.role === "editor" ? `/editor/${p.id}` : `/p/${p.id}`}
+                      className="h-8 px-3 rounded-md bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-xs font-semibold text-white transition-colors"
+                    >
+                      Open
+                    </Link>
+                    <div className="flex-1" />
+                    <span className="text-[11px] font-mono text-slate-600 truncate">
+                      {p.id}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
       </div>
     </main>
   );
 }
-

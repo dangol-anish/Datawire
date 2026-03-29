@@ -21,6 +21,7 @@ export function SharedViewClient({ pipeline }: { pipeline: any }) {
   const [requesting, setRequesting] = useState(false);
   const [requested, setRequested] = useState(false);
   const [promoted, setPromoted] = useState(false);
+  const [forking, setForking] = useState(false);
 
   useEffect(() => {
     if (!session?.user?.id) return;
@@ -67,6 +68,23 @@ export function SharedViewClient({ pipeline }: { pipeline: any }) {
     }
   };
 
+  const forkPipeline = async () => {
+    if (forking) return;
+    setForking(true);
+    try {
+      const res = await fetch(`/api/pipelines/${pipeline.id}/fork`, {
+        method: "POST",
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body?.error ?? "Fork failed");
+      router.push(`/editor/${body.id}`);
+    } catch (e: any) {
+      window.alert(typeof e?.message === "string" ? e.message : "Fork failed");
+    } finally {
+      setForking(false);
+    }
+  };
+
   return (
     <div className="flex flex-col h-screen bg-[#0d0f14]">
       <div className="flex items-center gap-3 px-4 h-12 border-b border-[#1e2330]">
@@ -76,6 +94,21 @@ export function SharedViewClient({ pipeline }: { pipeline: any }) {
         </span>
         <span className="text-xs text-slate-500 ml-1">read-only</span>
         <div className="flex-1" />
+        {session?.user?.id && (
+          <button
+            onClick={forkPipeline}
+            disabled={forking || promoted}
+            className="h-8 px-3 rounded-md text-xs font-semibold disabled:opacity-60"
+            style={{
+              background: "#0b0d12",
+              border: "1px solid #1e2330",
+              color: "white",
+            }}
+            title="Create your own copy of this pipeline"
+          >
+            {forking ? "Forking…" : "Fork"}
+          </button>
+        )}
         {session?.user?.id && !pipeline.is_public && (
           <button
             onClick={requestEditor}
