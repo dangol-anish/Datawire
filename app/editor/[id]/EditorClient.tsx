@@ -9,7 +9,7 @@ import { EditorToolbar } from "@/components/toolbar/EditorToolbar";
 import type { GraphJSON } from "@/types";
 import { NodeConfigSidebar } from "@/components/sidebar/NodeConfigSidebar";
 import { ResultsModal } from "@/components/results/ResultsModal";
-import { usePipelinePresence } from "@/hooks/usePipelinePresence";
+import { usePipelineCollaboration } from "@/hooks/usePipelineCollaboration";
 import { ShareDialog } from "@/components/share/ShareDialog";
 import { useFileStore } from "@/store/fileStore";
 
@@ -35,11 +35,24 @@ export function EditorClient({ pipeline }: Props) {
   const [shareOpen, setShareOpen] = React.useState(false);
   const isOwner = Boolean(myUserId && pipeline.user_id === myUserId);
 
-  const { sendCursor } = usePipelinePresence({
+  const { sendCursor, broadcastGraphEvent } = usePipelineCollaboration({
     pipelineId: pipeline.id,
     userId: myUserId,
     username: myUsername,
   });
+
+  const configDebounceRef = useRef<Record<string, number>>({});
+  const broadcastConfigChange = (nodeId: string, config: Record<string, unknown>) => {
+    const existing = configDebounceRef.current[nodeId];
+    if (existing) window.clearTimeout(existing);
+    configDebounceRef.current[nodeId] = window.setTimeout(() => {
+      broadcastGraphEvent({
+        type: "NODE_CONFIG_CHANGED",
+        nodeId,
+        config,
+      });
+    }, 200);
+  };
 
   // Initialise canvas from saved graph
   useEffect(() => {
@@ -145,6 +158,8 @@ export function EditorClient({ pipeline }: Props) {
       ),
     );
     setSelectedNodeId(null);
+
+    broadcastGraphEvent({ type: "NODE_REMOVED", nodeId: selectedNodeId });
   };
 
   const handleClear = () => {
@@ -157,6 +172,10 @@ export function EditorClient({ pipeline }: Props) {
     setNodes([]);
     setEdges([]);
     setSelectedNodeId(null);
+
+    nodes.forEach((n) =>
+      broadcastGraphEvent({ type: "NODE_REMOVED", nodeId: n.id }),
+    );
   };
 
   return (
@@ -176,9 +195,28 @@ export function EditorClient({ pipeline }: Props) {
             onCursorMove={(pos) => {
               sendCursor(pos);
             }}
+            onNodeAdded={(node) =>
+              broadcastGraphEvent({ type: "NODE_ADDED", node })
+            }
+            onNodeMoved={(nodeId, position) =>
+              broadcastGraphEvent({ type: "NODE_MOVED", nodeId, position })
+            }
+            onNodeRemoved={(nodeId) =>
+              broadcastGraphEvent({ type: "NODE_REMOVED", nodeId })
+            }
+            onEdgeAdded={(edge) =>
+              broadcastGraphEvent({ type: "EDGE_ADDED", edge })
+            }
+            onEdgeRemoved={(edgeId) =>
+              broadcastGraphEvent({ type: "EDGE_REMOVED", edgeId })
+            }
           />
         </div>
-        <NodeConfigSidebar />
+        <NodeConfigSidebar
+          onNodeConfigChange={(nodeId, config) => {
+            broadcastConfigChange(nodeId, config);
+          }}
+        />
       </div>
       <ResultsModal />
       <ShareDialog

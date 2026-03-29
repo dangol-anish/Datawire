@@ -5,9 +5,10 @@ import ReactFlow, {
   Background,
   Controls,
   MiniMap,
-  addEdge,
   BackgroundVariant,
   type Connection,
+  type NodeChange,
+  type EdgeChange,
   type ReactFlowInstance,
   type Viewport,
 } from "reactflow";
@@ -17,7 +18,7 @@ import { useGraphStore } from "@/store/graphStore";
 import { NODE_REGISTRY, NODE_LIST } from "@/nodes/index";
 import { PipelineNodeCard } from "./PipelineNodeCard";
 import { NodePalette } from "./NodePalette";
-import type { PipelineNode } from "@/types";
+import type { PipelineEdge, PipelineNode } from "@/types";
 import { PresenceCursors } from "./PresenceCursors";
 
 // Register custom node types for ReactFlow
@@ -31,12 +32,27 @@ function generateNodeId() {
   return `node_${Date.now()}_${nodeIdCounter++}`;
 }
 
+let edgeIdCounter = 1;
+function generateEdgeId() {
+  return `edge_${Date.now()}_${edgeIdCounter++}`;
+}
+
 export function EditorCanvas({
   onCursorMove,
   myUserId,
+  onNodeAdded,
+  onNodeMoved,
+  onNodeRemoved,
+  onEdgeAdded,
+  onEdgeRemoved,
 }: {
   onCursorMove?: (pos: { x: number; y: number }) => void;
   myUserId?: string;
+  onNodeAdded?: (node: PipelineNode) => void;
+  onNodeMoved?: (nodeId: string, position: { x: number; y: number }) => void;
+  onNodeRemoved?: (nodeId: string) => void;
+  onEdgeAdded?: (edge: PipelineEdge) => void;
+  onEdgeRemoved?: (edgeId: string) => void;
 }) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [reactFlowInstance, setReactFlowInstance] =
@@ -81,10 +97,23 @@ export function EditorCanvas({
 
   const onConnect = useCallback(
     (connection: Connection) => {
+      if (!connection.source || !connection.target) return;
+
+      const edge: PipelineEdge = {
+        id: generateEdgeId(),
+        source: connection.source,
+        target: connection.target,
+        sourceHandle: connection.sourceHandle,
+        targetHandle: connection.targetHandle,
+        animated: true,
+      } as any;
+
       pushHistory();
-      setEdges(addEdge({ ...connection, animated: true }, edges) as any);
+      const currentEdges = useGraphStore.getState().edges;
+      setEdges([...currentEdges, edge]);
+      onEdgeAdded?.(edge);
     },
-    [edges, setEdges, pushHistory],
+    [setEdges, pushHistory, onEdgeAdded],
   );
 
   const onNodeClick = useCallback(
@@ -132,9 +161,29 @@ export function EditorCanvas({
       };
 
       pushHistory();
-      useGraphStore.getState().setNodes([...nodes, newNode]);
+      const currentNodes = useGraphStore.getState().nodes;
+      useGraphStore.getState().setNodes([...currentNodes, newNode]);
+      onNodeAdded?.(newNode);
     },
-    [reactFlowInstance, nodes, pushHistory],
+    [reactFlowInstance, pushHistory, onNodeAdded],
+  );
+
+  const handleNodesChange = useCallback(
+    (changes: NodeChange[]) => {
+      const removed = changes.filter((c) => c.type === "remove").map((c) => c.id);
+      onNodesChange(changes);
+      removed.forEach((id) => onNodeRemoved?.(id));
+    },
+    [onNodesChange, onNodeRemoved],
+  );
+
+  const handleEdgesChange = useCallback(
+    (changes: EdgeChange[]) => {
+      const removed = changes.filter((c) => c.type === "remove").map((c) => c.id);
+      onEdgesChange(changes);
+      removed.forEach((id) => onEdgeRemoved?.(id));
+    },
+    [onEdgesChange, onEdgeRemoved],
   );
 
   const onMouseMove = useCallback(
@@ -158,13 +207,16 @@ export function EditorCanvas({
         <ReactFlow
           nodes={nodes}
           edges={edges}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
+          onNodesChange={handleNodesChange}
+          onEdgesChange={handleEdgesChange}
           onConnect={onConnect}
           onNodeClick={onNodeClick}
           onPaneClick={onPaneClick}
           onInit={setReactFlowInstance}
           onMove={(_, vp) => setViewport(vp)}
+          onNodeDragStop={(_, node) => {
+            onNodeMoved?.(node.id, node.position);
+          }}
           onDrop={onDrop}
           onDragOver={onDragOver}
           nodeTypes={nodeTypes}

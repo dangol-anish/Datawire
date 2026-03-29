@@ -15,7 +15,11 @@ function guessFormatFromName(name: string): "csv" | "json" {
   return "csv";
 }
 
-export function NodeConfigSidebar() {
+export function NodeConfigSidebar({
+  onNodeConfigChange,
+}: {
+  onNodeConfigChange?: (nodeId: string, config: Record<string, unknown>) => void;
+}) {
   const { selectedNodeId, nodes, updateNodeConfig, pushHistory } =
     useGraphStore();
   const node = nodes.find((n) => n.id === selectedNodeId);
@@ -58,7 +62,9 @@ export function NodeConfigSidebar() {
 
   const handleChange = (key: string, value: unknown) => {
     pushHistory();
-    updateNodeConfig(node.id, { ...config, [key]: value });
+    const nextConfig = { ...config, [key]: value };
+    updateNodeConfig(node.id, nextConfig);
+    onNodeConfigChange?.(node.id, nextConfig);
   };
 
   return (
