@@ -6,6 +6,8 @@ import { isPipelineOwner } from "@/lib/pipelineAccess";
 import { getRequestOrigin } from "@/lib/requestOrigin";
 import { createSupabaseRlsClientForUser } from "@/lib/supabaseRlsServer";
 
+export const runtime = "nodejs";
+
 type InviteRole = "viewer" | "editor";
 
 export async function POST(

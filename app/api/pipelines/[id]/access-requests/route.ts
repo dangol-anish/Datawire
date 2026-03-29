@@ -4,6 +4,8 @@ import { authOptions } from "@/lib/nextAuthOptions";
 import { canViewPipeline, isPipelineOwner } from "@/lib/pipelineAccess";
 import { createSupabaseRlsClientForUser } from "@/lib/supabaseRlsServer";
 
+export const runtime = "nodejs";
+
 export async function POST(
   _req: Request,
   { params }: { params: { id: string } },

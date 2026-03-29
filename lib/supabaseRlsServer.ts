@@ -10,8 +10,24 @@ function requireEnv(name: string) {
 function base64UrlToBytes(input: string) {
   const b64 = input.replace(/-/g, "+").replace(/_/g, "/");
   const pad = b64.length % 4 ? "=".repeat(4 - (b64.length % 4)) : "";
+  const normalized = b64 + pad;
+
+  // Node.js
   // eslint-disable-next-line no-undef
-  return new Uint8Array(Buffer.from(b64 + pad, "base64"));
+  if (typeof Buffer !== "undefined") {
+    // eslint-disable-next-line no-undef
+    return new Uint8Array(Buffer.from(normalized, "base64"));
+  }
+
+  // Edge / browser
+  if (typeof atob !== "undefined") {
+    const bin = atob(normalized);
+    const out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  }
+
+  throw new Error("No base64 decoder available");
 }
 
 let cachedSigningKey: Uint8Array | null = null;
@@ -48,6 +64,30 @@ export async function mintSupabaseAccessToken(userId: string) {
   const now = Math.floor(Date.now() / 1000);
   const exp = now + 60 * 10; // 10 min
 
+  let key: Uint8Array | CryptoKey = await getSupabaseJwtSigningKey();
+  const isNode =
+    // eslint-disable-next-line no-undef
+    typeof process !== "undefined" && !!(process as any)?.versions?.node;
+
+  // In Edge/WebCrypto environments, use a CryptoKey for HMAC-SHA256.
+  // In Node.js, `jose` expects a KeyObject/Uint8Array; passing a WebCrypto CryptoKey can throw
+  // "No suitable key or wrong key type".
+  if (!isNode && typeof crypto !== "undefined" && crypto.subtle) {
+    try {
+      // Ensure we pass a Uint8Array backed by an ArrayBuffer (not SharedArrayBuffer) for WebCrypto typings.
+      const bytes = Uint8Array.from(key as Uint8Array);
+      key = await crypto.subtle.importKey(
+        "raw",
+        bytes,
+        { name: "HMAC", hash: "SHA-256" },
+        false,
+        ["sign"],
+      );
+    } catch {
+      // fall back to raw bytes
+    }
+  }
+
   return await new SignJWT({
     role: "authenticated",
     aud: "authenticated",
@@ -56,7 +96,7 @@ export async function mintSupabaseAccessToken(userId: string) {
     .setSubject(userId)
     .setIssuedAt(now)
     .setExpirationTime(exp)
-    .sign(await getSupabaseJwtSigningKey());
+    .sign(key as any);
 }
 
 export async function createSupabaseRlsClientForUser(

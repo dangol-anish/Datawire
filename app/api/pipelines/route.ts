@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/nextAuthOptions";
 import { createSupabaseRlsClientForUser } from "@/lib/supabaseRlsServer";
 
+export const runtime = "nodejs";
+
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

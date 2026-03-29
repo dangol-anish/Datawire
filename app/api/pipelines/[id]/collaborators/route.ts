@@ -4,6 +4,8 @@ import { authOptions } from "@/lib/nextAuthOptions";
 import { isPipelineOwner } from "@/lib/pipelineAccess";
 import { createSupabaseRlsClientForUser } from "@/lib/supabaseRlsServer";
 
+export const runtime = "nodejs";
+
 export async function GET(
   _req: Request,
   { params }: { params: { id: string } },

@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/nextAuthOptions";
 import { canEditPipeline, canViewPipeline, isPipelineOwner } from "@/lib/pipelineAccess";
 
+export const runtime = "nodejs";
+
 export async function GET(
   _req: Request,
   { params }: { params: { id: string } },

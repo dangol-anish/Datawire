@@ -5,6 +5,8 @@ import { authOptions } from "@/lib/nextAuthOptions";
 import { canEditPipeline } from "@/lib/pipelineAccess";
 import { createSupabaseRlsClientForUser } from "@/lib/supabaseRlsServer";
 
+export const runtime = "nodejs";
+
 export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } },
