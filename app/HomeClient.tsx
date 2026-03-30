@@ -180,7 +180,7 @@ export function HomeClient({
           </button>
         </header>
 
-        <div className="mb-6">
+        <div className="mb-6 flex justify-center">
           <div
             className="inline-flex items-center gap-1 p-1 rounded-xl"
             style={{
