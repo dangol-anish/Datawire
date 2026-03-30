@@ -193,6 +193,10 @@ export function HomeClient({
           </section>
         )}
 
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-semibold text-slate-200">Your pipelines</h2>
+        </div>
+
         {pipelines.length === 0 ? (
           <div className="rounded-2xl border border-border bg-surface p-10">
             <h2 className="text-lg font-semibold">No pipelines yet</h2>
