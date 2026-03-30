@@ -7,6 +7,7 @@ import { signOut } from "next-auth/react";
 import clsx from "clsx";
 import type { PipelineTemplate } from "@/lib/pipelineTemplates";
 import {
+  LuChevronDown,
   LuEllipsisVertical,
   LuLogOut,
   LuPlus,
@@ -264,7 +265,8 @@ export function HomeClient({
     const onMouseDown = (e: MouseEvent) => {
       const el = menuRef.current;
       if (!el) return;
-      if (e.target instanceof Node && !el.contains(e.target)) setMenuOpen(false);
+      if (e.target instanceof Node && !el.contains(e.target))
+        setMenuOpen(false);
     };
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("mousedown", onMouseDown);
@@ -403,8 +405,7 @@ export function HomeClient({
                   creating
                     ? undefined
                     : {
-                        background:
-                          "linear-gradient(90deg, #a3a6ff, #8387ff)",
+                        background: "linear-gradient(90deg, #a3a6ff, #8387ff)",
                       }
                 }
                 disabled={creating}
@@ -508,7 +509,7 @@ export function HomeClient({
 
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
           <div
-            className="inline-flex items-center gap-1 p-1 rounded-xl"
+            className="inline-flex items-center gap-1 p-1 rounded-lg"
             style={{
               background: "rgba(255,255,255,0.03)",
               border: "1px solid rgba(255,255,255,0.08)",
@@ -518,7 +519,7 @@ export function HomeClient({
               type="button"
               onClick={() => setTab("your")}
               className={clsx(
-                "px-3 h-9 rounded-lg text-sm font-semibold transition-colors",
+                "px-2 h-7 rounded-lg text-sm font-semibold transition-colors",
                 tab === "your"
                   ? "bg-white/10 text-white"
                   : "text-slate-300 hover:text-white hover:bg-white/5",
@@ -549,15 +550,19 @@ export function HomeClient({
           <div className="flex-1" />
 
           <div className="flex items-center gap-2 justify-end">
-            <span className="text-xs text-slate-500">Sort</span>
-            <select
-              value={sortMode}
-              onChange={(e) => setSortMode(e.target.value as SortMode)}
-              className="h-11 px-3 rounded-xl bg-surface border border-border text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
-            >
-              <option value="updated">Last updated</option>
-              <option value="name">Name</option>
-            </select>
+            <div className="relative">
+              <select
+                value={sortMode}
+                onChange={(e) => setSortMode(e.target.value as SortMode)}
+                className="h-11 pl-3 pr-9 rounded-xl bg-surface border border-border text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/30 appearance-none"
+              >
+                <option value="updated">Last updated</option>
+                <option value="name">Name</option>
+              </select>
+              <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+                <LuChevronDown size={16} />
+              </div>
+            </div>
           </div>
         </div>
 
@@ -712,7 +717,9 @@ export function HomeClient({
                       >
                         <LuStar
                           size={16}
-                          color={pinnedSet.has(p.id) ? "#6366F1" : "currentColor"}
+                          color={
+                            pinnedSet.has(p.id) ? "#6366F1" : "currentColor"
+                          }
                           fill={pinnedSet.has(p.id) ? "#6366F1" : "none"}
                         />
                       </button>
