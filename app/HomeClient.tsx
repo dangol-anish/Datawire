@@ -62,7 +62,10 @@ export function HomeClient({
   }, [user?.name, user?.email]);
 
   const totalYourPages = Math.max(1, Math.ceil(pipelines.length / PAGE_SIZE));
-  const totalSharedPages = Math.max(1, Math.ceil(sharedPipelines.length / PAGE_SIZE));
+  const totalSharedPages = Math.max(
+    1,
+    Math.ceil(sharedPipelines.length / PAGE_SIZE),
+  );
 
   const yourPageClamped = Math.min(Math.max(1, yourPage), totalYourPages);
   const sharedPageClamped = Math.min(Math.max(1, sharedPage), totalSharedPages);
@@ -310,9 +313,9 @@ export function HomeClient({
                     >
                       Open editor
                     </Link>
-              </div>
-            </div>
-          ))}
+                  </div>
+                </div>
+              ))}
             </div>
           ))}
 
@@ -331,7 +334,9 @@ export function HomeClient({
             </div>
             <button
               type="button"
-              onClick={() => setYourPage((p) => Math.min(totalYourPages, p + 1))}
+              onClick={() =>
+                setYourPage((p) => Math.min(totalYourPages, p + 1))
+              }
               disabled={yourPageClamped >= totalYourPages}
               className="h-9 px-3 rounded-lg text-sm font-semibold text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
@@ -400,31 +405,33 @@ export function HomeClient({
             </section>
           ))}
 
-        {tab === "shared" && sharedPipelines.length > 0 && totalSharedPages > 1 && (
-          <div className="flex items-center justify-center gap-3 mt-6">
-            <button
-              type="button"
-              onClick={() => setSharedPage((p) => Math.max(1, p - 1))}
-              disabled={sharedPageClamped <= 1}
-              className="h-9 px-3 rounded-lg text-sm font-semibold text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              Previous
-            </button>
-            <div className="text-sm text-slate-400">
-              Page {sharedPageClamped} of {totalSharedPages}
+        {tab === "shared" &&
+          sharedPipelines.length > 0 &&
+          totalSharedPages > 1 && (
+            <div className="flex items-center justify-center gap-3 mt-6">
+              <button
+                type="button"
+                onClick={() => setSharedPage((p) => Math.max(1, p - 1))}
+                disabled={sharedPageClamped <= 1}
+                className="h-9 px-3 rounded-lg text-sm font-semibold text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Previous
+              </button>
+              <div className="text-sm text-slate-400">
+                Page {sharedPageClamped} of {totalSharedPages}
+              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  setSharedPage((p) => Math.min(totalSharedPages, p + 1))
+                }
+                disabled={sharedPageClamped >= totalSharedPages}
+                className="h-9 px-3 rounded-lg text-sm font-semibold text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Next
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() =>
-                setSharedPage((p) => Math.min(totalSharedPages, p + 1))
-              }
-              disabled={sharedPageClamped >= totalSharedPages}
-              className="h-9 px-3 rounded-lg text-sm font-semibold text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              Next
-            </button>
-          </div>
-        )}
+          )}
 
         {newOpen && (
           <div
@@ -438,18 +445,18 @@ export function HomeClient({
               className="w-full max-w-2xl rounded-2xl border border-border bg-surface overflow-hidden"
               style={{ boxShadow: "0 24px 80px rgba(0,0,0,0.6)" }}
             >
-              <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+              <div className="flex items-center justify-between px-3 py-3 border-b border-border">
                 <div className="min-w-0">
-                  <h3 className="text-base font-semibold text-white">
+                  <h4 className="text-base font-semibold text-white">
                     New pipeline
-                  </h3>
+                  </h4>
                   <p className="text-xs text-slate-500 mt-0.5">
                     Start from scratch or use an example template.
                   </p>
                 </div>
                 <button
                   type="button"
-                  className="h-9 w-9 rounded-lg text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 transition-colors"
+                  className="h-5 w-5  text-slate-300 hover:text-white  transition-colors"
                   onClick={() => setNewOpen(false)}
                   title="Close"
                 >
@@ -458,7 +465,7 @@ export function HomeClient({
               </div>
 
               <div className="p-5">
-                <div className="flex items-center gap-3">
+                <div className="flex items-center justify-end gap-3">
                   <button
                     type="button"
                     onClick={async () => {
@@ -467,17 +474,14 @@ export function HomeClient({
                     }}
                     disabled={creating}
                     className={clsx(
-                      "h-10 px-4 rounded-lg text-sm font-semibold transition-colors",
+                      "h-8 px-3 rounded-lg text-sm font-semibold transition-colors",
                       creating
                         ? "bg-indigo-700/70 text-white/90 cursor-not-allowed"
-                        : "bg-accent hover:bg-indigo-500 text-white",
+                        : "bg-accent hover:bg-indigo-700 text-white",
                     )}
                   >
-                    {creating ? "Creating…" : "Blank pipeline"}
+                    {creating ? "Creating…" : "Create a Blank Pipeline"}
                   </button>
-                  <div className="text-xs text-slate-500">
-                    Creates an empty canvas.
-                  </div>
                 </div>
 
                 {templates.length > 0 && (
@@ -495,9 +499,9 @@ export function HomeClient({
                       {templates.map((t) => (
                         <div
                           key={t.id}
-                          className="rounded-2xl border border-border bg-[#0b0d12] p-4 flex flex-col gap-3"
+                          className="rounded-2xl border border-border bg-[#0b0d12] p-3 flex flex-col gap-3"
                         >
-                          <div className="min-w-0">
+                          <div className="min-w-0 h-12">
                             <p className="text-sm font-semibold text-white truncate">
                               {t.name}
                             </p>
@@ -505,7 +509,7 @@ export function HomeClient({
                               {t.description}
                             </p>
                           </div>
-                          <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center justify-between">
                             <span className="text-[11px] text-slate-600">
                               {t.graph_json.nodes.length} nodes
                             </span>
@@ -523,7 +527,9 @@ export function HomeClient({
                                   : "bg-emerald-600 border-emerald-500/40 hover:bg-emerald-500 text-white",
                               )}
                             >
-                              {templateBusy === t.id ? "Creating…" : "Use template"}
+                              {templateBusy === t.id
+                                ? "Creating…"
+                                : "Use template"}
                             </button>
                           </div>
                         </div>
