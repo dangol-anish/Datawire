@@ -39,7 +39,7 @@ export async function POST(
     .insert({
       user_id: userId,
       name: `${source.name} (Fork)`,
-      graph_json: source.graph_json,
+      graph_json: JSON.stringify(source.graph_json),
       is_public: false,
     })
     .select("id")

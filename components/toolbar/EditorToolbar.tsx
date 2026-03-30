@@ -11,6 +11,7 @@ interface ToolbarProps {
   onDeleteSelected: () => void;
   onClear: () => void;
   onShare?: () => void;
+  saveState?: "saved" | "saving" | "dirty" | "error";
   className?: string;
   onUndo?: () => void;
   onRedo?: () => void;
@@ -25,6 +26,7 @@ export function EditorToolbar({
   onDeleteSelected,
   onClear,
   onShare,
+  saveState,
   className,
   onUndo,
   onRedo,
@@ -36,6 +38,14 @@ export function EditorToolbar({
   const selectedNodeId = useGraphStore((s) => s.selectedNodeId);
 
   const isRunning = status === "running";
+  const saveText =
+    saveState === "saving"
+      ? "Saving…"
+      : saveState === "saved"
+        ? "Saved"
+        : saveState === "error"
+          ? "Save failed"
+          : "Unsaved";
 
   return (
     <div
@@ -143,7 +153,7 @@ export function EditorToolbar({
       {/* Save */}
       <button
         onClick={onSave}
-        className="flex items-center gap-1.5 px-3 h-7 rounded-md text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 transition-colors"
+        className="flex items-center gap-2 px-3 h-7 rounded-md text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 transition-colors"
       >
         <svg
           width="12"
@@ -156,7 +166,34 @@ export function EditorToolbar({
           <path d="M2 1h6.5L10 2.5V10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V1z" />
           <path d="M4 1v3h4V1M3 6h6" strokeLinecap="round" />
         </svg>
-        Save
+        <span>Save</span>
+        {saveState && (
+          <span
+            className="text-[11px] px-2 py-0.5 rounded-full"
+            style={{
+              background:
+                saveState === "saved"
+                  ? "rgba(34,197,94,0.15)"
+                  : saveState === "saving"
+                    ? "rgba(99,102,241,0.18)"
+                    : saveState === "error"
+                      ? "rgba(239,68,68,0.18)"
+                      : "rgba(148,163,184,0.12)",
+              color:
+                saveState === "saved"
+                  ? "#86efac"
+                  : saveState === "saving"
+                    ? "#c7d2fe"
+                    : saveState === "error"
+                      ? "#fecaca"
+                      : "#cbd5e1",
+              border: "1px solid rgba(255,255,255,0.06)",
+            }}
+            title={saveText}
+          >
+            {saveText}
+          </span>
+        )}
       </button>
 
       {/* Delete node */}

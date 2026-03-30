@@ -29,7 +29,7 @@ export async function POST() {
     .insert({
       user_id: userId,
       name: "Untitled pipeline",
-      graph_json: { nodes: [], edges: [] },
+      graph_json: JSON.stringify({ nodes: [], edges: [] }),
       is_public: false,
     })
     .select("id")

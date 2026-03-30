@@ -41,16 +41,25 @@ export function ShareDialog({
   onClose,
   pipelineId,
   isOwner,
+  pipelineName,
+  isPublic,
+  onPipelineUpdated,
 }: {
   open: boolean;
   onClose: () => void;
   pipelineId: string;
   isOwner: boolean;
+  pipelineName: string;
+  isPublic: boolean;
+  onPipelineUpdated?: (next: { name?: string; is_public?: boolean }) => void;
 }) {
   const [role, setRole] = useState<"viewer" | "editor">("viewer");
   const [busy, setBusy] = useState(false);
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [draftName, setDraftName] = useState(pipelineName);
+  const [draftPublic, setDraftPublic] = useState(isPublic);
 
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
   const [requests, setRequests] = useState<AccessRequest[]>([]);
@@ -73,9 +82,47 @@ export function ShareDialog({
     if (!open) return;
     setError(null);
     setInviteUrl(null);
+    setDraftName(pipelineName);
+    setDraftPublic(isPublic);
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [open, isPublic, pipelineName]);
+
+  const updateSettings = async (payload: { name?: string; is_public?: boolean }) => {
+    if (!canManage || savingSettings) return;
+    setSavingSettings(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/pipelines/${pipelineId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const body = await safeJson(res);
+      if (!res.ok) throw new Error(body?.error ?? "Failed to update pipeline");
+      onPipelineUpdated?.(payload);
+    } catch (e: any) {
+      setError(typeof e?.message === "string" ? e.message : "Failed");
+      throw e;
+    } finally {
+      setSavingSettings(false);
+    }
+  };
+
+  const saveName = async () => {
+    const name = draftName.trim();
+    await updateSettings({ name });
+  };
+
+  const togglePublic = async (next: boolean) => {
+    setDraftPublic(next);
+    try {
+      await updateSettings({ is_public: next });
+    } catch {
+      // revert UI on failure
+      setDraftPublic((prev) => !prev);
+    }
+  };
 
   const createInvite = async () => {
     if (!canManage || busy) return;
@@ -184,6 +231,61 @@ export function ShareDialog({
             </div>
           ) : (
             <>
+              <div
+                className="rounded-xl p-4 mb-4"
+                style={{ border: "1px solid #1e2330", background: "#0b0d12" }}
+              >
+                <p className="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-3">
+                  Pipeline Settings
+                </p>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-xs text-slate-500 mb-1">Name</p>
+                    <div className="flex items-center gap-2">
+                      <input
+                        value={draftName}
+                        onChange={(e) => setDraftName(e.target.value)}
+                        className="flex-1 h-9 px-3 rounded-lg text-sm text-white outline-none"
+                        style={{
+                          background: "#161b27",
+                          border: "1px solid #2a3347",
+                        }}
+                      />
+                      <button
+                        onClick={saveName}
+                        disabled={savingSettings || draftName.trim() === pipelineName.trim()}
+                        className="h-9 px-3 rounded-lg text-sm font-semibold disabled:opacity-60 text-white border border-white/10 hover:bg-white/5 transition-colors"
+                      >
+                        Save
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-xs text-slate-500 mb-1">Visibility</p>
+                    <label className="flex items-center gap-2 select-none">
+                      <input
+                        type="checkbox"
+                        checked={draftPublic}
+                        onChange={(e) => void togglePublic(e.target.checked)}
+                        disabled={savingSettings}
+                      />
+                      <span className="text-sm text-slate-200">
+                        Public link enabled
+                      </span>
+                    </label>
+                    <p className="text-xs text-slate-600 mt-1">
+                      When public, anyone with the link can view the pipeline at{" "}
+                      <span className="font-mono text-slate-400">
+                        {`/p/${pipelineId}`}
+                      </span>
+                      .
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               <div className="rounded-xl p-4" style={{ border: "1px solid #1e2330", background: "#0b0d12" }}>
                 <p className="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-3">
                   Invite Link (Reusable)

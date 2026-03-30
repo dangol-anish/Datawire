@@ -2,6 +2,19 @@ import { supabaseServer } from "@/lib/supabaseServer";
 
 export type CollaboratorRole = "viewer" | "editor";
 
+function normalisePipelineRow<T extends { graph_json?: unknown }>(row: T | null) {
+  if (!row) return row;
+  const raw = (row as any).graph_json;
+  if (typeof raw === "string") {
+    try {
+      (row as any).graph_json = JSON.parse(raw);
+    } catch {
+      // Leave as-is; callers will treat it as missing/invalid graph.
+    }
+  }
+  return row;
+}
+
 async function getPipelineMetaById(pipelineId: string) {
   const { data, error } = await supabaseServer
     .from("pipelines")
@@ -20,7 +33,7 @@ export async function getPipelineByIdPublic(pipelineId: string) {
     .eq("is_public", true)
     .maybeSingle();
   if (error) return null;
-  return data;
+  return normalisePipelineRow(data);
 }
 
 export async function getPipelineByIdForUser(args: {
@@ -37,7 +50,7 @@ export async function getPipelineByIdForUser(args: {
       .eq("id", args.pipelineId)
       .maybeSingle();
     if (error) return null;
-    return data;
+    return normalisePipelineRow(data);
   }
 
   const role = await getCollaboratorRole(args);
@@ -49,7 +62,7 @@ export async function getPipelineByIdForUser(args: {
     .eq("id", args.pipelineId)
     .maybeSingle();
   if (error) return null;
-  return data;
+  return normalisePipelineRow(data);
 }
 
 export async function isPipelineOwner(args: {

@@ -36,7 +36,7 @@ export async function POST(
     .insert({
       user_id: userId,
       name,
-      graph_json: template.graph_json,
+      graph_json: JSON.stringify(template.graph_json),
       is_public: false,
     })
     .select("id")

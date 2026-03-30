@@ -28,9 +28,50 @@ interface Props {
   pipeline: Pipeline;
 }
 
+function stableGraphSnapshot(nodes: GraphJSON["nodes"], edges: GraphJSON["edges"]) {
+  const cleanNodes = (nodes ?? []).map((n) => ({
+    id: n.id,
+    type: n.type,
+    position: n.position,
+    data: n.data,
+  }));
+  const cleanEdges = (edges ?? []).map((e) => ({
+    id: e.id,
+    source: e.source,
+    target: e.target,
+    sourceHandle: e.sourceHandle ?? null,
+    targetHandle: e.targetHandle ?? null,
+  }));
+
+  cleanNodes.sort((a, b) => a.id.localeCompare(b.id));
+  cleanEdges.sort((a, b) => a.id.localeCompare(b.id));
+
+  return JSON.stringify({ nodes: cleanNodes, edges: cleanEdges });
+}
+
+function toPersistedGraphJSON(nodes: GraphJSON["nodes"], edges: GraphJSON["edges"]): GraphJSON {
+  return {
+    nodes: (nodes ?? []).map((n) => ({
+      id: n.id,
+      type: n.type,
+      position: n.position,
+      data: n.data,
+    })) as any,
+    edges: (edges ?? []).map((e) => ({
+      id: e.id,
+      source: e.source,
+      target: e.target,
+      sourceHandle: e.sourceHandle ?? null,
+      targetHandle: e.targetHandle ?? null,
+    })) as any,
+  };
+}
+
 export function EditorClient({ pipeline }: Props) {
   const { setNodes, setEdges, setSelectedNodeId, pushHistory, undo, redo } =
     useGraphStore();
+  const nodes = useGraphStore((s) => s.nodes);
+  const edges = useGraphStore((s) => s.edges);
   const historyLen = useGraphStore((s) => s.history.length);
   const futureLen = useGraphStore((s) => s.future.length);
   const { setPipelineStatus, setNodeStatus, setResult } = useExecutionStore();
@@ -39,6 +80,8 @@ export function EditorClient({ pipeline }: Props) {
   const router = useRouter();
   const myUserId = session?.user?.id;
   const myUsername = session?.user?.name || session?.user?.email || "User";
+  const [pipelineName, setPipelineName] = React.useState(pipeline.name);
+  const [isPublic, setIsPublic] = React.useState(pipeline.is_public);
   const [shareOpen, setShareOpen] = React.useState(false);
   const isOwner = Boolean(myUserId && pipeline.user_id === myUserId);
   const [mobilePanel, setMobilePanel] = React.useState<null | "nodes" | "config">(
@@ -47,6 +90,11 @@ export function EditorClient({ pipeline }: Props) {
   const addNodeRef = React.useRef<((nodeType: string) => void) | null>(null);
   const [collabEnabled, setCollabEnabled] = React.useState(false);
   const [canBroadcast, setCanBroadcast] = React.useState(true);
+  const [saveState, setSaveState] = React.useState<
+    "saved" | "saving" | "dirty" | "error"
+  >("saved");
+  const lastSavedGraphRef = useRef<string>("");
+  const pendingAutoSaveRef = useRef<number | null>(null);
 
   const { sendCursor, broadcastGraphEvent } = usePipelineCollaboration({
     pipelineId: pipeline.id,
@@ -71,6 +119,15 @@ export function EditorClient({ pipeline }: Props) {
 
   // Initialise canvas from saved graph
   useEffect(() => {
+    setPipelineName(pipeline.name);
+    setIsPublic(pipeline.is_public);
+    const initialGraph = stableGraphSnapshot(
+      pipeline.graph_json?.nodes ?? [],
+      pipeline.graph_json?.edges ?? [],
+    );
+    lastSavedGraphRef.current = initialGraph;
+    setSaveState("saved");
+
     if (pipeline.graph_json) {
       setNodes(pipeline.graph_json.nodes ?? []);
       setEdges(pipeline.graph_json.edges ?? []);
@@ -84,7 +141,7 @@ export function EditorClient({ pipeline }: Props) {
   // If the owner downgrades this user from editor -> viewer, auto-switch them to the read-only view.
   useEffect(() => {
     if (!myUserId) return;
-    if (pipeline.is_public) return;
+    if (isPublic) return;
 
     let cancelled = false;
 
@@ -117,7 +174,7 @@ export function EditorClient({ pipeline }: Props) {
       cancelled = true;
       window.clearInterval(t);
     };
-  }, [myUserId, pipeline.id, pipeline.is_public, router]);
+  }, [myUserId, pipeline.id, isPublic, router]);
 
   // Spin up the Web Worker once
   useEffect(() => {
@@ -184,10 +241,16 @@ export function EditorClient({ pipeline }: Props) {
     });
   };
 
-  const handleSave = async () => {
-    const { nodes, edges } = useGraphStore.getState();
-    const graph_json: GraphJSON = { nodes, edges };
+  const handleSave = async (opts?: { silent?: boolean }) => {
+    // Always read the latest graph directly from the store. Using the
+    // component's `nodes/edges` can be stale if the user hits Save before the
+    // next render after a ReactFlow update.
+    const { nodes: currentNodes, edges: currentEdges } = useGraphStore.getState();
 
+    const snapshot = stableGraphSnapshot(currentNodes, currentEdges);
+    const graph_json = toPersistedGraphJSON(currentNodes, currentEdges);
+
+    setSaveState("saving");
     const res = await fetch(`/api/pipelines/${pipeline.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -199,9 +262,48 @@ export function EditorClient({ pipeline }: Props) {
       const msg =
         (body && typeof body.error === "string" && body.error) ||
         `Save failed (${res.status})`;
-      window.alert(msg);
+      if (!opts?.silent) window.alert(msg);
+      setSaveState("error");
+      return;
     }
+
+    lastSavedGraphRef.current = snapshot;
+    const latest = useGraphStore.getState();
+    const current = stableGraphSnapshot(latest.nodes, latest.edges);
+    setSaveState(current === snapshot ? "saved" : "dirty");
   };
+
+  // Track dirty state
+  useEffect(() => {
+    const current = stableGraphSnapshot(nodes, edges);
+    if (current === lastSavedGraphRef.current) {
+      if (saveState !== "saving") setSaveState("saved");
+      return;
+    }
+    if (saveState !== "saving") setSaveState("dirty");
+  }, [nodes, edges, pipeline.id, saveState]);
+
+  // Autosave (best-effort) while user still has edit privileges.
+  useEffect(() => {
+    if (!canBroadcast) return;
+    if (saveState !== "dirty") return;
+
+    if (pendingAutoSaveRef.current != null) {
+      window.clearTimeout(pendingAutoSaveRef.current);
+    }
+    pendingAutoSaveRef.current = window.setTimeout(() => {
+      pendingAutoSaveRef.current = null;
+      void handleSave({ silent: true });
+    }, 1500);
+
+    return () => {
+      if (pendingAutoSaveRef.current != null) {
+        window.clearTimeout(pendingAutoSaveRef.current);
+        pendingAutoSaveRef.current = null;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [saveState, canBroadcast, pipeline.id, nodes, edges]);
 
   const isTypingInInput = () => {
     const el = document.activeElement as HTMLElement | null;
@@ -344,7 +446,7 @@ export function EditorClient({ pipeline }: Props) {
           </svg>
         </div>
         <span className="text-sm font-semibold text-slate-200 truncate">
-          {pipeline.name}
+          {pipelineName}
         </span>
         <div className="flex-1" />
         <button
@@ -357,9 +459,10 @@ export function EditorClient({ pipeline }: Props) {
 
       <EditorToolbar
         className="hidden md:flex"
-        pipelineName={pipeline.name}
+        pipelineName={pipelineName}
         onRun={handleRun}
         onSave={handleSave}
+        saveState={saveState}
         onDeleteSelected={handleDeleteSelected}
         onClear={handleClear}
         onShare={() => setShareOpen(true)}
@@ -449,10 +552,10 @@ export function EditorClient({ pipeline }: Props) {
             ↻
           </button>
           <button
-            onClick={handleSave}
+            onClick={() => void handleSave()}
             className="h-10 px-3 rounded-lg text-xs font-semibold text-white border border-white/10 hover:bg-white/5"
           >
-            Save
+            {saveState === "saving" ? "Saving…" : "Save"}
           </button>
           <button
             onClick={handleRun}
@@ -497,6 +600,13 @@ export function EditorClient({ pipeline }: Props) {
         onClose={() => setShareOpen(false)}
         pipelineId={pipeline.id}
         isOwner={isOwner}
+        pipelineName={pipelineName}
+        isPublic={isPublic}
+        onPipelineUpdated={(next) => {
+          if (typeof next.name === "string") setPipelineName(next.name);
+          if (typeof next.is_public === "boolean") setIsPublic(next.is_public);
+          router.refresh();
+        }}
       />
     </div>
   );
