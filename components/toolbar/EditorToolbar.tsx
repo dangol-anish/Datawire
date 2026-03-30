@@ -5,6 +5,9 @@ import Link from "next/link";
 import { useGraphStore } from "@/store/graphStore";
 import { useExecutionStore } from "@/store/executionStore";
 import {
+  LuAlertTriangle,
+  LuCheckCircle2,
+  LuCircle,
   LuEraser,
   LuLoaderCircle,
   LuPlay,
@@ -82,6 +85,17 @@ export function EditorToolbar({
         : saveState === "error"
           ? "Save failed"
           : "Unsaved";
+
+  const saveIcon =
+    saveState === "saving" ? (
+      <LuLoaderCircle size={14} className="animate-spin" aria-hidden="true" />
+    ) : saveState === "saved" ? (
+      <LuCheckCircle2 size={14} aria-hidden="true" />
+    ) : saveState === "error" ? (
+      <LuAlertTriangle size={14} aria-hidden="true" />
+    ) : (
+      <LuCircle size={14} aria-hidden="true" />
+    );
 
   const collabText =
     collabState === "connected"
@@ -290,16 +304,8 @@ export function EditorToolbar({
         <span>Save</span>
         {saveState && (
           <span
-            className="text-[11px] px-2 py-0.5 rounded-full"
+            className="inline-flex items-center justify-center"
             style={{
-              background:
-                saveState === "saved"
-                  ? "rgba(34,197,94,0.15)"
-                  : saveState === "saving"
-                    ? "rgba(99,102,241,0.18)"
-                    : saveState === "error"
-                      ? "rgba(239,68,68,0.18)"
-                      : "rgba(148,163,184,0.12)",
               color:
                 saveState === "saved"
                   ? "#86efac"
@@ -308,11 +314,11 @@ export function EditorToolbar({
                     : saveState === "error"
                       ? "#fecaca"
                       : "#cbd5e1",
-              border: "1px solid rgba(255,255,255,0.06)",
             }}
             title={saveText}
+            aria-label={saveText}
           >
-            {saveText}
+            {saveIcon}
           </span>
         )}
       </button>
