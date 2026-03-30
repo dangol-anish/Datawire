@@ -194,46 +194,7 @@ export function HomeClient({
               </div>
             </Link>
 
-            <div className="flex-1 flex justify-center">
-              <div
-                className="inline-flex items-center gap-1 p-1 rounded-xl"
-                style={{
-                  background: "rgba(255,255,255,0.03)",
-                  border: "1px solid rgba(255,255,255,0.08)",
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={() => setTab("your")}
-                  className={clsx(
-                    "px-3 h-9 rounded-lg text-sm font-semibold transition-colors",
-                    tab === "your"
-                      ? "bg-white/10 text-white"
-                      : "text-slate-300 hover:text-white hover:bg-white/5",
-                  )}
-                >
-                  Your pipelines{" "}
-                  <span className="ml-1 text-xs text-slate-400">
-                    {pipelines.length}
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTab("shared")}
-                  className={clsx(
-                    "px-3 h-9 rounded-lg text-sm font-semibold transition-colors",
-                    tab === "shared"
-                      ? "bg-white/10 text-white"
-                      : "text-slate-300 hover:text-white hover:bg-white/5",
-                  )}
-                >
-                  Shared with you{" "}
-                  <span className="ml-1 text-xs text-slate-400">
-                    {sharedPipelines.length}
-                  </span>
-                </button>
-              </div>
-            </div>
+            <div className="flex-1" />
 
             <div className="flex items-center justify-end gap-2">
               <button
@@ -263,6 +224,46 @@ export function HomeClient({
       </div>
 
       <div className="max-w-5xl mx-auto px-6 py-8">
+        <div className="mb-6 flex justify-center">
+          <div
+            className="inline-flex items-center gap-1 p-1 rounded-xl"
+            style={{
+              background: "rgba(255,255,255,0.03)",
+              border: "1px solid rgba(255,255,255,0.08)",
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setTab("your")}
+              className={clsx(
+                "px-3 h-9 rounded-lg text-sm font-semibold transition-colors",
+                tab === "your"
+                  ? "bg-white/10 text-white"
+                  : "text-slate-300 hover:text-white hover:bg-white/5",
+              )}
+            >
+              Your pipelines{" "}
+              <span className="ml-1 text-xs text-slate-400">
+                {pipelines.length}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab("shared")}
+              className={clsx(
+                "px-3 h-9 rounded-lg text-sm font-semibold transition-colors",
+                tab === "shared"
+                  ? "bg-white/10 text-white"
+                  : "text-slate-300 hover:text-white hover:bg-white/5",
+              )}
+            >
+              Shared with you{" "}
+              <span className="ml-1 text-xs text-slate-400">
+                {sharedPipelines.length}
+              </span>
+            </button>
+          </div>
+        </div>
 
         {tab === "your" &&
           (pipelines.length === 0 ? (
