@@ -496,9 +496,12 @@ export function EditorClient({ pipeline, collabRoom }: Props) {
         className="md:hidden flex items-center gap-2 px-4 h-12 flex-shrink-0"
         style={{ borderBottom: "1px solid #1e2330" }}
       >
-        <div
-          className="w-6 h-6 rounded-md flex items-center justify-center"
+        <button
+          type="button"
+          onClick={() => router.push("/")}
+          className="w-6 h-6 rounded-md flex items-center justify-center hover:opacity-90 transition-opacity"
           style={{ background: "#6366f1" }}
+          title="Back to home"
         >
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
             <circle cx="3" cy="7" r="2" fill="white" />
@@ -521,7 +524,7 @@ export function EditorClient({ pipeline, collabRoom }: Props) {
               strokeWidth="1.2"
             />
           </svg>
-        </div>
+        </button>
         {!mobileEditingName && (
           <span
             className={`text-sm font-semibold text-slate-200 truncate ${isOwner ? "cursor-text" : ""}`}
