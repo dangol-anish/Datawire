@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
@@ -19,6 +19,8 @@ type SharedPipelineRow = PipelineRow & {
   role: "viewer" | "editor";
   user_id?: string;
 };
+
+type HomeTab = "your" | "shared" | "examples";
 
 function formatDate(iso?: string | null) {
   if (!iso) return "";
@@ -45,10 +47,44 @@ export function HomeClient({
   const router = useRouter();
   const [creating, setCreating] = useState(false);
   const [templateBusy, setTemplateBusy] = useState<string | null>(null);
+  const hasExamples = templates.length > 0;
+  const [tab, setTab] = useState<HomeTab>(() => {
+    if (pipelines.length > 0) return "your";
+    if (sharedPipelines.length > 0) return "shared";
+    if (hasExamples) return "examples";
+    return "your";
+  });
 
   const headerLabel = useMemo(() => {
     return user?.name || user?.email || "Account";
   }, [user?.name, user?.email]);
+
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem("dw_home_tab");
+      if (stored === "your" || stored === "shared" || stored === "examples") {
+        setTab(stored);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem("dw_home_tab", tab);
+    } catch {
+      // ignore
+    }
+  }, [tab]);
+
+  useEffect(() => {
+    if (tab !== "examples") return;
+    if (hasExamples) return;
+    if (pipelines.length > 0) setTab("your");
+    else if (sharedPipelines.length > 0) setTab("shared");
+    else setTab("your");
+  }, [hasExamples, pipelines.length, sharedPipelines.length, tab]);
 
   const createPipeline = async () => {
     if (creating) return;
@@ -144,7 +180,65 @@ export function HomeClient({
           </button>
         </header>
 
-        {templates.length > 0 && (
+        <div className="mb-6">
+          <div
+            className="inline-flex items-center gap-1 p-1 rounded-xl"
+            style={{
+              background: "rgba(255,255,255,0.03)",
+              border: "1px solid rgba(255,255,255,0.08)",
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setTab("your")}
+              className={clsx(
+                "px-3 h-9 rounded-lg text-sm font-semibold transition-colors",
+                tab === "your"
+                  ? "bg-white/10 text-white"
+                  : "text-slate-300 hover:text-white hover:bg-white/5",
+              )}
+            >
+              Your pipelines{" "}
+              <span className="ml-1 text-xs text-slate-400">
+                {pipelines.length}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab("shared")}
+              className={clsx(
+                "px-3 h-9 rounded-lg text-sm font-semibold transition-colors",
+                tab === "shared"
+                  ? "bg-white/10 text-white"
+                  : "text-slate-300 hover:text-white hover:bg-white/5",
+              )}
+            >
+              Shared with you{" "}
+              <span className="ml-1 text-xs text-slate-400">
+                {sharedPipelines.length}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab("examples")}
+              disabled={!hasExamples}
+              className={clsx(
+                "px-3 h-9 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
+                tab === "examples"
+                  ? "bg-white/10 text-white"
+                  : "text-slate-300 hover:text-white hover:bg-white/5",
+              )}
+              title={!hasExamples ? "No example pipelines available" : undefined}
+            >
+              Examples{" "}
+              <span className="ml-1 text-xs text-slate-400">
+                {templates.length}
+              </span>
+            </button>
+          </div>
+        </div>
+
+        {tab === "examples" && hasExamples && (
           <section className="mb-8">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm font-semibold text-slate-200">
@@ -193,82 +287,26 @@ export function HomeClient({
           </section>
         )}
 
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold text-slate-200">Your pipelines</h2>
-        </div>
-
-        {pipelines.length === 0 ? (
-          <div className="rounded-2xl border border-border bg-surface p-10">
-            <h2 className="text-lg font-semibold">No pipelines yet</h2>
-            <p className="text-sm text-slate-400 mt-1">
-              Create your first pipeline, then open it in the editor.
-            </p>
-            <div className="mt-6">
-              <button
-                onClick={createPipeline}
-                className="h-10 px-5 rounded-lg bg-accent hover:bg-indigo-500 text-white font-semibold transition-colors"
-                disabled={creating}
-              >
-                {creating ? "Creating…" : "Create pipeline"}
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {pipelines.map((p) => (
-              <div
-                key={p.id}
-                className="rounded-2xl border border-border bg-surface p-5 flex flex-col gap-3"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-white truncate">
-                      {p.name}
-                    </p>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      Updated {formatDate(p.updated_at ?? p.created_at)}
-                    </p>
-                  </div>
-                  <span
-                    className="text-xs font-medium px-2 py-1 rounded-md flex-shrink-0 text-slate-400"
-                    title={
-                      p.is_public
-                        ? "Anyone with the link can view"
-                        : "Only invited collaborators can view"
-                    }
-                  >
-                    {p.is_public ? "Public" : "Private"}
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-end gap-2 mt-2 ">
-                  <Link
-                    href={`/p/${p.id}`}
-                    className="h-8 px-3 rounded-md text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 transition-colors flex items-center"
-                    title="Open share view (requires pipeline to be public)"
-                  >
-                    Shared view
-                  </Link>
-
-                  <Link
-                    href={`/editor/${p.id}`}
-                    className="h-8 px-3 rounded-md text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 transition-colors flex items-center"
-                  >
-                    Open editor
-                  </Link>
-                </div>
+        {tab === "your" &&
+          (pipelines.length === 0 ? (
+            <div className="rounded-2xl border border-border bg-surface p-10">
+              <h2 className="text-lg font-semibold">No pipelines yet</h2>
+              <p className="text-sm text-slate-400 mt-1">
+                Create your first pipeline, then open it in the editor.
+              </p>
+              <div className="mt-6">
+                <button
+                  onClick={createPipeline}
+                  className="h-10 px-5 rounded-lg bg-accent hover:bg-indigo-500 text-white font-semibold transition-colors"
+                  disabled={creating}
+                >
+                  {creating ? "Creating…" : "Create pipeline"}
+                </button>
               </div>
-            ))}
-          </div>
-        )}
-
-        {sharedPipelines.length > 0 && (
-          <section className="mt-10">
-            <h2 className="text-sm font-semibold text-slate-200 mb-3">
-              Shared with you
-            </h2>
+            </div>
+          ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {sharedPipelines.map((p) => (
+              {pipelines.map((p) => (
                 <div
                   key={p.id}
                   className="rounded-2xl border border-border bg-surface p-5 flex flex-col gap-3"
@@ -285,37 +323,95 @@ export function HomeClient({
                     <span
                       className="text-xs font-medium px-2 py-1 rounded-md flex-shrink-0 text-slate-400"
                       title={
-                        p.role === "editor"
-                          ? "You can edit this pipeline"
-                          : "Read-only access"
+                        p.is_public
+                          ? "Anyone with the link can view"
+                          : "Only invited collaborators can view"
                       }
                     >
-                      {p.role === "editor" ? "Editor" : "Viewer"}
+                      {p.is_public ? "Public" : "Private"}
                     </span>
                   </div>
 
-                  <div className="flex items-center justify-end gap-2 mt-2">
+                  <div className="flex items-center justify-end gap-2 mt-2 ">
                     <Link
                       href={`/p/${p.id}`}
                       className="h-8 px-3 rounded-md text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 transition-colors flex items-center"
+                      title="Open share view (requires pipeline to be public)"
                     >
                       Shared view
                     </Link>
 
                     <Link
-                      href={
-                        p.role === "editor" ? `/editor/${p.id}` : `/p/${p.id}`
-                      }
+                      href={`/editor/${p.id}`}
                       className="h-8 px-3 rounded-md text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 transition-colors flex items-center"
                     >
-                      {p.role === "editor" ? "Open editor" : "Open"}
+                      Open editor
                     </Link>
                   </div>
                 </div>
               ))}
             </div>
-          </section>
-        )}
+          ))}
+
+        {tab === "shared" &&
+          (sharedPipelines.length === 0 ? (
+            <div className="rounded-2xl border border-border bg-surface p-10">
+              <h2 className="text-lg font-semibold">No shared pipelines</h2>
+              <p className="text-sm text-slate-400 mt-1">
+                Pipelines others share with you will show up here.
+              </p>
+            </div>
+          ) : (
+            <section>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {sharedPipelines.map((p) => (
+                  <div
+                    key={p.id}
+                    className="rounded-2xl border border-border bg-surface p-5 flex flex-col gap-3"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-white truncate">
+                          {p.name}
+                        </p>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          Updated {formatDate(p.updated_at ?? p.created_at)}
+                        </p>
+                      </div>
+                      <span
+                        className="text-xs font-medium px-2 py-1 rounded-md flex-shrink-0 text-slate-400"
+                        title={
+                          p.role === "editor"
+                            ? "You can edit this pipeline"
+                            : "Read-only access"
+                        }
+                      >
+                        {p.role === "editor" ? "Editor" : "Viewer"}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2 mt-2">
+                      <Link
+                        href={`/p/${p.id}`}
+                        className="h-8 px-3 rounded-md text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 transition-colors flex items-center"
+                      >
+                        Shared view
+                      </Link>
+
+                      <Link
+                        href={
+                          p.role === "editor" ? `/editor/${p.id}` : `/p/${p.id}`
+                        }
+                        className="h-8 px-3 rounded-md text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 transition-colors flex items-center"
+                      >
+                        {p.role === "editor" ? "Open editor" : "Open"}
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ))}
       </div>
     </main>
   );
