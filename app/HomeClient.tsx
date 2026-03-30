@@ -56,6 +56,7 @@ export function HomeClient({
   const [templateBusy, setTemplateBusy] = useState<string | null>(null);
   const PAGE_SIZE = 8;
   const [newOpen, setNewOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [sortMode, setSortMode] = useState<SortMode>("updated");
   const [pinnedIds, setPinnedIds] = useState<string[]>([]);
@@ -69,6 +70,7 @@ export function HomeClient({
   });
   const [yourPage, setYourPage] = useState(1);
   const [sharedPage, setSharedPage] = useState(1);
+  const searchInputRef = React.useRef<HTMLInputElement | null>(null);
 
   const headerLabel = useMemo(() => {
     return user?.name || user?.email || "Account";
@@ -236,6 +238,12 @@ export function HomeClient({
     setSharedPage(1);
   }, [cleanedQuery, sortMode]);
 
+  useEffect(() => {
+    if (!searchOpen) return;
+    searchInputRef.current?.focus();
+    searchInputRef.current?.select();
+  }, [searchOpen]);
+
   const createPipeline = async () => {
     if (creating) return;
     setCreating(true);
@@ -324,6 +332,79 @@ export function HomeClient({
             <div className="flex-1" />
 
             <div className="flex items-center justify-end gap-2">
+              <div className="flex items-center gap-2">
+                {searchOpen && (
+                  <div className="relative">
+                    <input
+                      ref={searchInputRef}
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      placeholder="Search…"
+                      className="h-9 w-56 pl-9 pr-9 rounded-xl bg-surface border border-border text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
+                      onKeyDown={(e) => {
+                        if (e.key === "Escape") {
+                          e.preventDefault();
+                          setSearchOpen(false);
+                        }
+                      }}
+                    />
+                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
+                        <path
+                          d="M21 21l-4.3-4.3m1.8-5.2a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z"
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                    </div>
+                    {query.trim().length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setQuery("")}
+                        className="absolute right-1.5 top-1/2 -translate-y-1/2 h-7 w-7 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition-colors"
+                        title="Clear search"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => setSearchOpen((v) => !v)}
+                  className={clsx(
+                    "h-9 w-9 rounded-lg border transition-colors flex items-center justify-center",
+                    "hover:bg-white/5 hover:border-white/20",
+                    query.trim().length > 0
+                      ? "text-indigo-400 border-indigo-500/40"
+                      : "text-slate-300 border-white/10",
+                  )}
+                  title={searchOpen ? "Close search" : "Search"}
+                  aria-label={searchOpen ? "Close search" : "Search"}
+                >
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <path
+                      d="M21 21l-4.3-4.3m1.8-5.2a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </button>
+              </div>
+
               <button
                 onClick={() => setNewOpen(true)}
                 className={clsx(
@@ -379,55 +460,6 @@ export function HomeClient({
         </div>
 
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
-          <div className="flex-1">
-            <div className="relative">
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search pipelines…"
-                className="w-full h-11 pl-10 pr-10 rounded-xl bg-surface border border-border text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
-              />
-              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <path
-                    d="M21 21l-4.3-4.3m1.8-5.2a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              </div>
-              {query.trim().length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setQuery("")}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition-colors"
-                  title="Clear"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-500">Sort</span>
-            <select
-              value={sortMode}
-              onChange={(e) => setSortMode(e.target.value as SortMode)}
-              className="h-11 px-3 rounded-xl bg-surface border border-border text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
-            >
-              <option value="updated">Last updated</option>
-              <option value="name">Name</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="mb-6 flex justify-center">
           <div
             className="inline-flex items-center gap-1 p-1 rounded-xl"
             style={{
@@ -465,6 +497,20 @@ export function HomeClient({
                 {sharedPipelines.length}
               </span>
             </button>
+          </div>
+
+          <div className="flex-1" />
+
+          <div className="flex items-center gap-2 justify-end">
+            <span className="text-xs text-slate-500">Sort</span>
+            <select
+              value={sortMode}
+              onChange={(e) => setSortMode(e.target.value as SortMode)}
+              className="h-11 px-3 rounded-xl bg-surface border border-border text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
+            >
+              <option value="updated">Last updated</option>
+              <option value="name">Name</option>
+            </select>
           </div>
         </div>
 
