@@ -1,12 +1,21 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
 import clsx from "clsx";
 import type { PipelineTemplate } from "@/lib/pipelineTemplates";
-import { LuPlus, LuSearch, LuStar, LuWorkflow, LuX } from "react-icons/lu";
+import {
+  LuEllipsisVertical,
+  LuLogOut,
+  LuPlus,
+  LuSearch,
+  LuStar,
+  LuUser,
+  LuWorkflow,
+  LuX,
+} from "react-icons/lu";
 import {
   readPinnedPipelineIds,
   readRecentPipelines,
@@ -57,6 +66,7 @@ export function HomeClient({
   const [templateBusy, setTemplateBusy] = useState<string | null>(null);
   const PAGE_SIZE = 8;
   const [newOpen, setNewOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [sortMode, setSortMode] = useState<SortMode>("updated");
@@ -72,6 +82,7 @@ export function HomeClient({
   const [yourPage, setYourPage] = useState(1);
   const [sharedPage, setSharedPage] = useState(1);
   const searchInputRef = React.useRef<HTMLInputElement | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
 
   const headerLabel = useMemo(() => {
     return user?.name || user?.email || "Account";
@@ -245,6 +256,24 @@ export function HomeClient({
     searchInputRef.current?.select();
   }, [searchOpen]);
 
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMenuOpen(false);
+    };
+    const onMouseDown = (e: MouseEvent) => {
+      const el = menuRef.current;
+      if (!el) return;
+      if (e.target instanceof Node && !el.contains(e.target)) setMenuOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("mousedown", onMouseDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("mousedown", onMouseDown);
+    };
+  }, [menuOpen]);
+
   const createPipeline = async () => {
     if (creating) return;
     setCreating(true);
@@ -388,13 +417,62 @@ export function HomeClient({
                 )}
               </button>
 
-              <button
-                onClick={() => signOut({ callbackUrl: "/login" })}
-                className="h-9 px-4 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 transition-colors"
-                title="Sign out"
-              >
-                Sign out
-              </button>
+              <div className="relative" ref={menuRef}>
+                <button
+                  type="button"
+                  onClick={() => setMenuOpen((v) => !v)}
+                  className="h-9 w-9 rounded-lg border border-white/10 text-slate-300 hover:text-white hover:bg-white/5 hover:border-white/20 transition-colors flex items-center justify-center"
+                  title="Menu"
+                  aria-label="Menu"
+                >
+                  <LuEllipsisVertical size={18} />
+                </button>
+
+                {menuOpen && (
+                  <div
+                    className="absolute right-0 mt-2 w-52 rounded-xl overflow-hidden"
+                    style={{
+                      background: "#0d0f14",
+                      border: "1px solid #1e2330",
+                      boxShadow: "0 24px 80px rgba(0,0,0,0.6)",
+                    }}
+                  >
+                    <div className="px-3 py-3 border-b border-[#1e2330]">
+                      <div className="text-xs text-slate-500">Signed in as</div>
+                      <div className="text-sm font-semibold text-white truncate mt-0.5">
+                        {user?.name || "Account"}
+                      </div>
+                      {user?.email && (
+                        <div className="text-xs text-slate-500 truncate">
+                          {user.email}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="p-1">
+                      <Link
+                        href="/account"
+                        onClick={() => setMenuOpen(false)}
+                        className="flex items-center gap-2 px-3 h-9 rounded-lg text-sm text-slate-200 hover:bg-white/5 transition-colors"
+                      >
+                        <LuUser size={16} />
+                        Account
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMenuOpen(false);
+                          void signOut({ callbackUrl: "/login" });
+                        }}
+                        className="w-full flex items-center gap-2 px-3 h-9 rounded-lg text-sm text-slate-200 hover:bg-white/5 transition-colors"
+                      >
+                        <LuLogOut size={16} />
+                        Sign out
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
