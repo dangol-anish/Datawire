@@ -121,7 +121,9 @@ export function HomeClient({
 
   const preparedShared = useMemo(() => {
     const filtered = cleanedQuery
-      ? sharedPipelines.filter((p) => p.name.toLowerCase().includes(cleanedQuery))
+      ? sharedPipelines.filter((p) =>
+          p.name.toLowerCase().includes(cleanedQuery),
+        )
       : sharedPipelines.slice();
 
     filtered.sort((a, b) => {
@@ -140,7 +142,10 @@ export function HomeClient({
     return filtered;
   }, [cleanedQuery, pinnedSet, sharedPipelines, sortMode]);
 
-  const totalYourPages = Math.max(1, Math.ceil(preparedOwned.length / PAGE_SIZE));
+  const totalYourPages = Math.max(
+    1,
+    Math.ceil(preparedOwned.length / PAGE_SIZE),
+  );
   const totalSharedPages = Math.max(
     1,
     Math.ceil(preparedShared.length / PAGE_SIZE),
@@ -600,22 +605,24 @@ export function HomeClient({
                       <button
                         type="button"
                         onClick={() => togglePinned(p.id)}
-                        className="h-8 w-8 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 transition-colors"
+                        className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 transition-colors"
                         title={
                           pinnedSet.has(p.id)
                             ? "Unpin pipeline"
                             : "Pin pipeline"
                         }
                         aria-label={
-                          pinnedSet.has(p.id) ? "Unpin pipeline" : "Pin pipeline"
+                          pinnedSet.has(p.id)
+                            ? "Unpin pipeline"
+                            : "Pin pipeline"
                         }
                       >
                         <svg
                           width="14"
                           height="14"
                           viewBox="0 0 24 24"
-                          fill={pinnedSet.has(p.id) ? "currentColor" : "none"}
-                          stroke="currentColor"
+                          fill={pinnedSet.has(p.id) ? "#6366F1" : "none"}
+                          stroke={pinnedSet.has(p.id) ? "#6366F1" : "currentColor"}
                           strokeWidth="2"
                         >
                           <path
@@ -725,90 +732,96 @@ export function HomeClient({
                         <p className="text-sm font-semibold text-white truncate">
                           {p.name}
                         </p>
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        Updated {formatDate(p.updated_at ?? p.created_at)}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => togglePinned(p.id)}
-                        className="h-8 w-8 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 transition-colors"
-                        title={
-                          pinnedSet.has(p.id)
-                            ? "Unpin pipeline"
-                            : "Pin pipeline"
-                        }
-                        aria-label={
-                          pinnedSet.has(p.id) ? "Unpin pipeline" : "Pin pipeline"
-                        }
-                      >
-                        <svg
-                          width="14"
-                          height="14"
-                          viewBox="0 0 24 24"
-                          fill={pinnedSet.has(p.id) ? "currentColor" : "none"}
-                          stroke="currentColor"
-                          strokeWidth="2"
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          Updated {formatDate(p.updated_at ?? p.created_at)}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => togglePinned(p.id)}
+                          className="h-8 w-8 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 transition-colors"
+                          title={
+                            pinnedSet.has(p.id)
+                              ? "Unpin pipeline"
+                              : "Pin pipeline"
+                          }
+                          aria-label={
+                            pinnedSet.has(p.id)
+                              ? "Unpin pipeline"
+                              : "Pin pipeline"
+                          }
                         >
-                          <path
-                            d="M12 17.5 6.2 20.7l1.1-6.6L2.5 9.8l6.7-1 2.8-6.1 2.8 6.1 6.7 1-4.8 4.3 1.1 6.6z"
-                            strokeLinejoin="round"
-                          />
-                        </svg>
-                      </button>
-                      <span
-                        className="text-xs font-medium px-2 py-1 rounded-md text-slate-400 border border-white/10"
-                        title={
-                          p.role === "editor"
-                            ? "You can edit this pipeline"
-                            : "Read-only access"
-                        }
+                          <svg
+                            width="14"
+                            height="14"
+                            viewBox="0 0 24 24"
+                            fill={pinnedSet.has(p.id) ? "#6366F1" : "none"}
+                            stroke={
+                              pinnedSet.has(p.id) ? "#6366F1" : "currentColor"
+                            }
+                            strokeWidth="2"
+                          >
+                            <path
+                              d="M12 17.5 6.2 20.7l1.1-6.6L2.5 9.8l6.7-1 2.8-6.1 2.8 6.1 6.7 1-4.8 4.3 1.1 6.6z"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                        </button>
+                        <span
+                          className="text-xs font-medium px-2 py-1 rounded-md text-slate-400 border border-white/10"
+                          title={
+                            p.role === "editor"
+                              ? "You can edit this pipeline"
+                              : "Read-only access"
+                          }
+                        >
+                          {p.role === "editor" ? "Editor" : "Viewer"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2 mt-2">
+                      <Link
+                        href={`/p/${p.id}`}
+                        onClick={() => {
+                          const next = recordRecentPipeline({
+                            id: p.id,
+                            name: p.name,
+                            href: `/p/${p.id}`,
+                          });
+                          setRecent(next);
+                        }}
+                        className="h-8 px-3 rounded-md text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 transition-colors flex items-center"
                       >
-                        {p.role === "editor" ? "Editor" : "Viewer"}
-                      </span>
+                        Shared view
+                      </Link>
+
+                      <Link
+                        href={
+                          p.role === "editor" ? `/editor/${p.id}` : `/p/${p.id}`
+                        }
+                        onClick={() => {
+                          const href =
+                            p.role === "editor"
+                              ? `/editor/${p.id}`
+                              : `/p/${p.id}`;
+                          const next = recordRecentPipeline({
+                            id: p.id,
+                            name: p.name,
+                            href,
+                          });
+                          setRecent(next);
+                        }}
+                        className="h-8 px-3 rounded-md text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 transition-colors flex items-center"
+                      >
+                        {p.role === "editor" ? "Open editor" : "Open"}
+                      </Link>
                     </div>
                   </div>
-
-                  <div className="flex items-center justify-end gap-2 mt-2">
-                    <Link
-                      href={`/p/${p.id}`}
-                      onClick={() => {
-                        const next = recordRecentPipeline({
-                          id: p.id,
-                          name: p.name,
-                          href: `/p/${p.id}`,
-                        });
-                        setRecent(next);
-                      }}
-                      className="h-8 px-3 rounded-md text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 transition-colors flex items-center"
-                    >
-                      Shared view
-                    </Link>
-
-                    <Link
-                      href={
-                        p.role === "editor" ? `/editor/${p.id}` : `/p/${p.id}`
-                      }
-                      onClick={() => {
-                        const href =
-                          p.role === "editor" ? `/editor/${p.id}` : `/p/${p.id}`;
-                        const next = recordRecentPipeline({
-                          id: p.id,
-                          name: p.name,
-                          href,
-                        });
-                        setRecent(next);
-                      }}
-                      className="h-8 px-3 rounded-md text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 transition-colors flex items-center"
-                    >
-                      {p.role === "editor" ? "Open editor" : "Open"}
-                    </Link>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
+                ))}
+              </div>
+            </section>
           ))}
 
         {tab === "shared" &&
