@@ -370,7 +370,9 @@ export function HomeClient({
                   type="button"
                   className={clsx(
                     "h-9 w-9 flex items-center justify-center transition-colors",
-                    query.trim().length > 0 ? "text-indigo-300" : "text-slate-300",
+                    query.trim().length > 0
+                      ? "text-indigo-300"
+                      : "text-slate-300",
                     "hover:bg-white/5 hover:text-white",
                   )}
                   onClick={() => {
@@ -658,23 +660,42 @@ export function HomeClient({
 
         {tab === "your" &&
           (preparedOwned.length === 0 ? (
-            <div className="rounded-2xl border border-border bg-surface p-10">
-              <h2 className="text-lg font-semibold">
-                {query.trim().length > 0 ? "No matches" : "No pipelines yet"}
-              </h2>
-              <p className="text-sm text-slate-400 mt-1">
-                {query.trim().length > 0
-                  ? "Try a different search term."
-                  : "Create your first pipeline, then open it in the editor."}
-              </p>
-              <div className="mt-6">
-                <button
-                  onClick={createPipeline}
-                  className="h-10 px-5 rounded-lg bg-accent hover:bg-indigo-500 text-white font-semibold transition-colors"
-                  disabled={creating}
-                >
-                  {creating ? "Creating…" : "Create pipeline"}
-                </button>
+            <div className="rounded-xl border border-border bg-surface p-5">
+              <div className="flex  justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold">
+                    {query.trim().length > 0
+                      ? "No matches"
+                      : "No pipelines yet"}
+                  </h2>
+                  <p className="text-sm text-slate-400 mt-1">
+                    {query.trim().length > 0
+                      ? "Try a different search term."
+                      : "Create your first pipeline, then open it in the editor."}
+                  </p>
+                </div>
+                <div className="mt-1">
+                  <button
+                    onClick={createPipeline}
+                    className={clsx(
+                      "h-8 px-3 rounded-lg text-white text-sm font-semibold transition-all",
+                      creating
+                        ? "bg-indigo-700/70 text-white/90 cursor-not-allowed"
+                        : "hover:brightness-110",
+                    )}
+                    style={
+                      creating
+                        ? undefined
+                        : {
+                            background:
+                              "linear-gradient(90deg, #a3a6ff, #8387ff)",
+                          }
+                    }
+                    disabled={creating}
+                  >
+                    {creating ? "Creating…" : "Create pipeline"}
+                  </button>
+                </div>
               </div>
 
               {query.trim().length === 0 && templates.length > 0 && (
@@ -867,7 +888,7 @@ export function HomeClient({
                         <button
                           type="button"
                           onClick={() => togglePinned(p.id)}
-                          className="h-8 w-8 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 transition-colors"
+                          className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 transition-colors"
                           title={
                             pinnedSet.has(p.id)
                               ? "Unpin pipeline"
@@ -888,7 +909,7 @@ export function HomeClient({
                           />
                         </button>
                         <span
-                          className="text-xs font-medium px-2 py-1 rounded-md text-slate-400 border border-white/10"
+                          className="text-xs font-medium px-2 py-1 rounded-md text-slate-400 "
                           title={
                             p.role === "editor"
                               ? "You can edit this pipeline"
