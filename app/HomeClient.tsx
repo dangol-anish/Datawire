@@ -719,7 +719,10 @@ export function HomeClient({
                         });
                         setRecent(next);
                       }}
-                      className="h-8 px-3 rounded-md text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 transition-colors flex items-center"
+                      className="h-8 px-3 rounded-md text-xs font-semibold text-white hover:brightness-110 transition-all flex items-center"
+                      style={{
+                        background: "linear-gradient(90deg, #8387ff, #a3a6ff)",
+                      }}
                     >
                       Open editor
                     </Link>
@@ -861,7 +864,20 @@ export function HomeClient({
                           });
                           setRecent(next);
                         }}
-                        className="h-8 px-3 rounded-md text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 transition-colors flex items-center"
+                        className={clsx(
+                          "h-8 px-3 rounded-md text-xs transition-all flex items-center",
+                          p.role === "editor"
+                            ? "font-semibold text-white hover:brightness-110"
+                            : "font-medium text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 transition-colors",
+                        )}
+                        style={
+                          p.role === "editor"
+                            ? {
+                                background:
+                                  "linear-gradient(90deg, #8387ff, #a3a6ff)",
+                              }
+                            : undefined
+                        }
                       >
                         {p.role === "editor" ? "Open editor" : "Open"}
                       </Link>
