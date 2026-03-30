@@ -13,6 +13,7 @@ import {
   LuPlus,
   LuSearch,
   LuStar,
+  LuTrash2,
   LuUser,
   LuWorkflow,
   LuX,
@@ -21,6 +22,8 @@ import {
   clearRecentPipelines,
   readPinnedPipelineIds,
   readRecentPipelines,
+  removePinnedPipeline,
+  removeRecentPipeline,
   recordRecentPipeline,
   setPinnedPipelineIds,
 } from "@/lib/homeUiState";
@@ -81,6 +84,7 @@ export function HomeClient({
   const [recent, setRecent] = useState<
     Array<{ id: string; name: string; href: string; accessedAt: number }>
   >([]);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [tab, setTab] = useState<HomeTab>(() => {
     if (pipelines.length > 0) return "your";
     if (sharedPipelines.length > 0) return "shared";
@@ -105,6 +109,52 @@ export function HomeClient({
       setPinnedPipelineIds(user.id, next);
       return next;
     });
+  };
+
+  const deletePipeline = async (pipelineId: string, pipelineName: string) => {
+    if (deletingId) return;
+    const ok = window.confirm(
+      `Delete “${pipelineName}”? This cannot be undone.`,
+    );
+    if (!ok) return;
+
+    setDeletingId(pipelineId);
+    try {
+      const res = await fetch(`/api/pipelines/${pipelineId}`, {
+        method: "DELETE",
+      });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(
+          (body && typeof body.error === "string" && body.error) ||
+            `Delete failed (${res.status})`,
+        );
+      }
+
+      setRecent((prev) => {
+        const next = prev.filter((p) => p.id !== pipelineId);
+        try {
+          return removeRecentPipeline(user.id, pipelineId);
+        } catch {
+          return next;
+        }
+      });
+      setPinnedIds((prev) => {
+        const next = prev.filter((id) => id !== pipelineId);
+        try {
+          return removePinnedPipeline(user.id, pipelineId);
+        } catch {
+          setPinnedPipelineIds(user.id, next);
+          return next;
+        }
+      });
+
+      router.refresh();
+    } catch (e: any) {
+      window.alert(typeof e?.message === "string" ? e.message : "Delete failed");
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   const getUpdatedIso = (row: { updated_at?: string; created_at: string }) =>
@@ -778,6 +828,16 @@ export function HomeClient({
                           }
                           fill={pinnedSet.has(p.id) ? "#6366F1" : "none"}
                         />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void deletePipeline(p.id, p.name)}
+                        disabled={deletingId === p.id}
+                        className="p-1 rounded-lg text-slate-400 hover:text-red-300 hover:bg-white/5 border border-white/10 hover:border-white/20 transition-colors disabled:opacity-50"
+                        title="Delete pipeline"
+                        aria-label="Delete pipeline"
+                      >
+                        <LuTrash2 size={16} />
                       </button>
                       <span
                         className="text-xs font-medium px-2 py-1 rounded-md text-slate-400 "

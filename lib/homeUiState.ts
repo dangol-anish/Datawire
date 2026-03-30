@@ -104,3 +104,21 @@ export function setPinnedPipelineIds(scope: string | null | undefined, ids: stri
     // ignore
   }
 }
+
+export function removeRecentPipeline(scope: string | null | undefined, pipelineId: string) {
+  const existing = readRecentPipelines(scope);
+  const next = existing.filter((p) => p.id !== pipelineId);
+  try {
+    window.localStorage.setItem(scopedKey(RECENT_KEY, scope), JSON.stringify(next));
+  } catch {
+    // ignore
+  }
+  return next;
+}
+
+export function removePinnedPipeline(scope: string | null | undefined, pipelineId: string) {
+  const existing = readPinnedPipelineIds(scope);
+  const next = existing.filter((id) => id !== pipelineId);
+  setPinnedPipelineIds(scope, next);
+  return next;
+}

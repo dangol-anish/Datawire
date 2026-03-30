@@ -136,3 +136,72 @@ export async function PATCH(
 
   return NextResponse.json({ ok: true });
 }
+
+function isMissingRelationError(message: string) {
+  const m = message.toLowerCase();
+  return (
+    m.includes("does not exist") ||
+    m.includes("relation") ||
+    m.includes("schema cache") ||
+    m.includes("pgrst") // PostgREST relation cache error wording varies
+  );
+}
+
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: { id: string } },
+) {
+  const session = await getServerSession(authOptions);
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (!isUuid(session.user.id)) {
+    return NextResponse.json(
+      { error: "Invalid session user id (expected UUID)" },
+      { status: 400 },
+    );
+  }
+  if (!isUuid(params.id)) {
+    return NextResponse.json(
+      { error: "Invalid pipeline id (expected UUID)" },
+      { status: 400 },
+    );
+  }
+
+  const owner = await isPipelineOwner({
+    pipelineId: params.id,
+    userId: session.user.id,
+  });
+  if (!owner) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+  const supabase = supabaseServer;
+
+  // Best-effort cleanup of related rows. Some projects may not have all tables.
+  for (const table of [
+    "pipeline_collaborators",
+    "pipeline_invites",
+    "pipeline_access_requests",
+  ] as const) {
+    const { error } = await supabase.from(table).delete().eq("pipeline_id", params.id);
+    if (error && !isMissingRelationError(error.message)) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+  }
+
+  const { data, error } = await supabase
+    .from("pipelines")
+    .delete()
+    .eq("id", params.id)
+    .eq("user_id", session.user.id)
+    .select("id");
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  if (!data || data.length === 0) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  return NextResponse.json({ ok: true });
+}
