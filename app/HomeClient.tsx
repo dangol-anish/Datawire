@@ -150,108 +150,119 @@ export function HomeClient({
 
   return (
     <main className="min-h-screen bg-canvas text-white">
-      <div className="max-w-5xl mx-auto px-6 py-10">
-        <header className="flex items-center gap-4 mb-8">
-          <div className="flex items-center gap-3 min-w-0">
-            <div
-              className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
-              style={{ background: "#6366f1" }}
-            >
-              <svg width="18" height="18" viewBox="0 0 14 14" fill="none">
-                <circle cx="3" cy="7" r="2" fill="white" />
-                <circle cx="11" cy="3" r="2" fill="white" />
-                <circle cx="11" cy="11" r="2" fill="white" />
-                <line
-                  x1="5"
-                  y1="6.5"
-                  x2="9"
-                  y2="3.5"
-                  stroke="white"
-                  strokeWidth="1.2"
-                />
-                <line
-                  x1="5"
-                  y1="7.5"
-                  x2="9"
-                  y2="10.5"
-                  stroke="white"
-                  strokeWidth="1.2"
-                />
-              </svg>
+      <div
+        className="sticky top-0 z-40"
+        style={{ background: "#0d0f14", borderBottom: "1px solid #1e2330" }}
+      >
+        <div className="max-w-5xl mx-auto px-6 py-3 sm:py-0">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:h-14">
+            <Link href="/" className="flex items-center gap-3 min-w-0">
+              <div
+                className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                style={{ background: "#6366f1" }}
+                title="Home"
+              >
+                <svg width="18" height="18" viewBox="0 0 14 14" fill="none">
+                  <circle cx="3" cy="7" r="2" fill="white" />
+                  <circle cx="11" cy="3" r="2" fill="white" />
+                  <circle cx="11" cy="11" r="2" fill="white" />
+                  <line
+                    x1="5"
+                    y1="6.5"
+                    x2="9"
+                    y2="3.5"
+                    stroke="white"
+                    strokeWidth="1.2"
+                  />
+                  <line
+                    x1="5"
+                    y1="7.5"
+                    x2="9"
+                    y2="10.5"
+                    stroke="white"
+                    strokeWidth="1.2"
+                  />
+                </svg>
+              </div>
+              <div className="min-w-0">
+                <div className="text-sm font-semibold text-white truncate">
+                  Datawire
+                </div>
+                <div className="text-xs text-slate-400 truncate">
+                  Pipelines for {headerLabel}
+                </div>
+              </div>
+            </Link>
+
+            <div className="flex-1 flex justify-center">
+              <div
+                className="inline-flex items-center gap-1 p-1 rounded-xl"
+                style={{
+                  background: "rgba(255,255,255,0.03)",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setTab("your")}
+                  className={clsx(
+                    "px-3 h-9 rounded-lg text-sm font-semibold transition-colors",
+                    tab === "your"
+                      ? "bg-white/10 text-white"
+                      : "text-slate-300 hover:text-white hover:bg-white/5",
+                  )}
+                >
+                  Your pipelines{" "}
+                  <span className="ml-1 text-xs text-slate-400">
+                    {pipelines.length}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTab("shared")}
+                  className={clsx(
+                    "px-3 h-9 rounded-lg text-sm font-semibold transition-colors",
+                    tab === "shared"
+                      ? "bg-white/10 text-white"
+                      : "text-slate-300 hover:text-white hover:bg-white/5",
+                  )}
+                >
+                  Shared with you{" "}
+                  <span className="ml-1 text-xs text-slate-400">
+                    {sharedPipelines.length}
+                  </span>
+                </button>
+              </div>
             </div>
-            <div className="min-w-0">
-              <h1 className="text-2xl font-bold truncate">Datawire</h1>
-              <p className="text-xs text-slate-400 truncate">
-                Pipelines for {headerLabel}
-              </p>
+
+            <div className="flex items-center justify-end gap-2">
+              <button
+                onClick={() => setNewOpen(true)}
+                className={clsx(
+                  "h-9 px-4 rounded-lg text-sm font-semibold transition-colors",
+                  creating
+                    ? "bg-indigo-700/70 text-white/90 cursor-not-allowed"
+                    : "bg-accent hover:bg-indigo-500 text-white",
+                )}
+                disabled={creating}
+                title="Create a new pipeline"
+              >
+                {creating ? "Creating…" : "New pipeline"}
+              </button>
+
+              <button
+                onClick={() => signOut({ callbackUrl: "/login" })}
+                className="h-9 px-4 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 transition-colors"
+                title="Sign out"
+              >
+                Sign out
+              </button>
             </div>
-          </div>
-
-          <div className="flex-1" />
-
-          <button
-            onClick={() => setNewOpen(true)}
-            className={clsx(
-              "h-9 px-4 rounded-lg text-sm font-semibold transition-colors",
-              creating
-                ? "bg-indigo-700/70 text-white/90 cursor-not-allowed"
-                : "bg-accent hover:bg-indigo-500 text-white",
-            )}
-            disabled={creating}
-            title="Create a new pipeline"
-          >
-            {creating ? "Creating…" : "New pipeline"}
-          </button>
-
-          <button
-            onClick={() => signOut({ callbackUrl: "/login" })}
-            className="h-9 px-4 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 transition-colors"
-            title="Sign out"
-          >
-            Sign out
-          </button>
-        </header>
-
-        <div className="mb-6 flex justify-center">
-          <div
-            className="inline-flex items-center gap-1 p-1 rounded-xl"
-            style={{
-              background: "rgba(255,255,255,0.03)",
-              border: "1px solid rgba(255,255,255,0.08)",
-            }}
-          >
-            <button
-              type="button"
-              onClick={() => setTab("your")}
-              className={clsx(
-                "px-3 h-9 rounded-lg text-sm font-semibold transition-colors",
-                tab === "your"
-                  ? "bg-white/10 text-white"
-                  : "text-slate-300 hover:text-white hover:bg-white/5",
-              )}
-            >
-              Your pipelines{" "}
-              <span className="ml-1 text-xs text-slate-400">
-                {pipelines.length}
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setTab("shared")}
-              className={clsx(
-                "px-3 h-9 rounded-lg text-sm font-semibold transition-colors",
-                tab === "shared"
-                  ? "bg-white/10 text-white"
-                  : "text-slate-300 hover:text-white hover:bg-white/5",
-              )}
-            >
-              Shared with you{" "}
-              <span className="ml-1 text-xs text-slate-400">
-                {sharedPipelines.length}
-              </span>
-            </button>
           </div>
         </div>
+      </div>
+
+      <div className="max-w-5xl mx-auto px-6 py-8">
 
         {tab === "your" &&
           (pipelines.length === 0 ? (
