@@ -16,6 +16,7 @@ export function AuthPanel() {
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") || "/";
 
+  const allowSignup = process.env.NEXT_PUBLIC_ENABLE_PASSWORD_SIGNUP === "true";
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -32,6 +33,10 @@ export function AuthPanel() {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canSubmit || busy) return;
+    if (mode === "signup" && !allowSignup) {
+      setError("Email/password signup is disabled.");
+      return;
+    }
 
     setBusy(true);
     setError(null);
@@ -87,16 +92,27 @@ export function AuthPanel() {
         >
           Sign in
         </button>
-        <button
-          onClick={() => setMode("signup")}
-          className={`h-9 rounded-lg text-sm font-semibold border transition-colors ${
-            mode === "signup"
-              ? "bg-white/10 border-white/15 text-white"
-              : "bg-transparent border-white/10 text-slate-300 hover:text-white hover:bg-white/5"
-          }`}
-        >
-          Sign up
-        </button>
+        {allowSignup ? (
+          <button
+            onClick={() => setMode("signup")}
+            className={`h-9 rounded-lg text-sm font-semibold border transition-colors ${
+              mode === "signup"
+                ? "bg-white/10 border-white/15 text-white"
+                : "bg-transparent border-white/10 text-slate-300 hover:text-white hover:bg-white/5"
+            }`}
+          >
+            Sign up
+          </button>
+        ) : (
+          <button
+            type="button"
+            disabled
+            className="h-9 rounded-lg text-sm font-semibold border bg-transparent border-white/10 text-slate-500 opacity-60 cursor-not-allowed"
+            title="Email/password signup is disabled"
+          >
+            Sign up
+          </button>
+        )}
       </div>
 
       <form onSubmit={onSubmit} className="w-full flex flex-col gap-3">
