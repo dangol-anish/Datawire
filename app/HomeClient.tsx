@@ -408,15 +408,27 @@ export function HomeClient({
               <button
                 onClick={() => setNewOpen(true)}
                 className={clsx(
-                  "h-9 px-4 rounded-lg text-sm font-semibold transition-colors",
+                  "h-9 w-9 rounded-lg text-sm font-semibold text-white hover:brightness-110 transition-all flex items-center justify-center",
                   creating
                     ? "bg-indigo-700/70 text-white/90 cursor-not-allowed"
-                    : "bg-accent hover:bg-indigo-500 text-white",
+                    : "",
                 )}
+                style={
+                  creating
+                    ? undefined
+                    : {
+                        background:
+                          "linear-gradient(90deg, #a3a6ff, #8387ff)",
+                      }
+                }
                 disabled={creating}
                 title="Create a new pipeline"
               >
-                {creating ? "Creating…" : "New pipeline"}
+                {creating ? (
+                  <span className="text-xs">…</span>
+                ) : (
+                  <span className="text-xl leading-none">+</span>
+                )}
               </button>
 
               <button
