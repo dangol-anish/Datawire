@@ -3,6 +3,7 @@ import { authOptions } from "@/lib/nextAuthOptions";
 import { redirect, notFound } from "next/navigation";
 import { canEditPipeline, canViewPipeline, getPipelineByIdForUser } from "@/lib/pipelineAccess";
 import { EditorClient } from "./EditorClient";
+import { createHmac } from "crypto";
 
 interface Props {
   params: { id: string };
@@ -34,5 +35,14 @@ export default async function EditorPage({ params }: Props) {
     notFound();
   }
 
-  return <EditorClient pipeline={pipeline} />;
+  const secret = process.env.NEXTAUTH_SECRET;
+  if (!secret) {
+    throw new Error("Missing NEXTAUTH_SECRET (required for collaboration channel hardening)");
+  }
+  const collabRoom = createHmac("sha256", secret)
+    .update(`pipeline:${pipeline.id}`)
+    .digest("base64url")
+    .slice(0, 32);
+
+  return <EditorClient pipeline={pipeline} collabRoom={collabRoom} />;
 }

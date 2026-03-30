@@ -12,6 +12,7 @@ interface ToolbarProps {
   onClear: () => void;
   onShare?: () => void;
   saveState?: "saved" | "saving" | "dirty" | "error";
+  collabState?: "disabled" | "connecting" | "connected" | "reconnecting" | "error";
   className?: string;
   onUndo?: () => void;
   onRedo?: () => void;
@@ -27,6 +28,7 @@ export function EditorToolbar({
   onClear,
   onShare,
   saveState,
+  collabState,
   className,
   onUndo,
   onRedo,
@@ -46,6 +48,17 @@ export function EditorToolbar({
         : saveState === "error"
           ? "Save failed"
           : "Unsaved";
+
+  const collabText =
+    collabState === "connected"
+      ? "Live"
+      : collabState === "reconnecting"
+        ? "Reconnecting…"
+        : collabState === "connecting"
+          ? "Connecting…"
+          : collabState === "error"
+            ? "Offline"
+            : null;
 
   return (
     <div
@@ -90,6 +103,31 @@ export function EditorToolbar({
 
       {/* Spacer */}
       <div className="flex-1" />
+
+      {collabText && (
+        <div
+          className="hidden lg:flex items-center gap-2 px-2 h-7 rounded-md text-xs"
+          style={{
+            border: "1px solid rgba(255,255,255,0.06)",
+            background: "rgba(255,255,255,0.03)",
+            color: "#cbd5e1",
+          }}
+          title="Realtime collaboration status"
+        >
+          <span
+            className="w-2 h-2 rounded-full"
+            style={{
+              background:
+                collabState === "connected"
+                  ? "#22c55e"
+                  : collabState === "error"
+                    ? "#ef4444"
+                    : "#6366f1",
+            }}
+          />
+          {collabText}
+        </div>
+      )}
 
       {/* Undo / Redo */}
       <button

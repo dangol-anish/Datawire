@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
 import { supabase } from "@/lib/supabaseClient";
@@ -99,13 +99,21 @@ function randomId() {
 
 export function usePipelineCollaboration(args: {
   pipelineId: string;
+  room: string;
   userId: string | null | undefined;
   username: string | null | undefined;
   enabled?: boolean;
   canBroadcast?: boolean;
 }) {
-  const { pipelineId, userId, username, enabled = true, canBroadcast = true } =
+  const { pipelineId, room, userId, username, enabled = true, canBroadcast = true } =
     args;
+
+  const [connectionState, setConnectionState] = useState<
+    "disabled" | "connecting" | "connected" | "reconnecting" | "error"
+  >(enabled ? "connecting" : "disabled");
+  const [retryNonce, setRetryNonce] = useState(0);
+  const retryCountRef = useRef(0);
+  const retryTimerRef = useRef<number | null>(null);
 
   const setCollaborator = usePresenceStore((s) => s.setCollaborator);
   const removeCollaborator = usePresenceStore((s) => s.removeCollaborator);
@@ -223,6 +231,8 @@ export function usePipelineCollaboration(args: {
     if (!pipelineId || !me) return;
     if (!enabled) return;
 
+    setConnectionState(retryCountRef.current > 0 ? "reconnecting" : "connecting");
+
     clearCollaborators();
     recentEventIdsRef.current.clear();
     seqRef.current = 0;
@@ -234,7 +244,7 @@ export function usePipelineCollaboration(args: {
     lastEdgeTsRef.current.clear();
     pendingStateRequestRef.current = null;
 
-    const channel = supabase.channel(`pipeline:${pipelineId}`, {
+    const channel = supabase.channel(`pipeline:${pipelineId}:${room}`, {
       config: { presence: { key: me.userId } },
     });
     channelRef.current = channel;
@@ -424,27 +434,48 @@ export function usePipelineCollaboration(args: {
     });
 
     channel.subscribe((status) => {
-      if (status !== "SUBSCRIBED") return;
-      channel.track({
-        userId: me.userId,
-        username: me.username,
-        color: me.color,
-        x: -99999,
-        y: -99999,
-      });
-      setCollaborator(me.userId, {
-        userId: me.userId,
-        username: me.username,
-        color: me.color,
-        x: -99999,
-        y: -99999,
-      });
+      if (status === "SUBSCRIBED") {
+        retryCountRef.current = 0;
+        setConnectionState("connected");
 
-      // Best-effort: ask for current in-memory graph from an already-connected editor.
-      requestState();
+        channel.track({
+          userId: me.userId,
+          username: me.username,
+          color: me.color,
+          x: -99999,
+          y: -99999,
+        });
+        setCollaborator(me.userId, {
+          userId: me.userId,
+          username: me.username,
+          color: me.color,
+          x: -99999,
+          y: -99999,
+        });
+
+        // Best-effort: ask for current in-memory graph from an already-connected editor.
+        requestState();
+        return;
+      }
+
+      if (status === "TIMED_OUT" || status === "CHANNEL_ERROR") {
+        setConnectionState("error");
+        retryCountRef.current += 1;
+        if (retryCountRef.current > 5) return;
+        if (retryTimerRef.current != null) window.clearTimeout(retryTimerRef.current);
+        const delay = Math.min(15_000, 750 * retryCountRef.current);
+        retryTimerRef.current = window.setTimeout(() => {
+          retryTimerRef.current = null;
+          setRetryNonce((n) => n + 1);
+        }, delay);
+      }
     });
 
     return () => {
+      if (retryTimerRef.current != null) {
+        window.clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = null;
+      }
       cursorPendingRef.current = null;
       if (cursorRafRef.current != null) {
         window.cancelAnimationFrame(cursorRafRef.current);
@@ -456,13 +487,85 @@ export function usePipelineCollaboration(args: {
     };
   }, [
     pipelineId,
+    room,
     me,
     enabled,
+    retryNonce,
     setCollaborator,
     removeCollaborator,
     clearCollaborators,
     requestState,
   ]);
 
-  return { sendCursor, broadcastGraphEvent };
+  useEffect(() => {
+    if (!enabled) {
+      setConnectionState("disabled");
+      return;
+    }
+    if (connectionState === "disabled") setConnectionState("connecting");
+  }, [enabled, connectionState]);
+
+  useEffect(() => {
+    if (!enabled) return;
+
+    const realtime = supabase.realtime;
+    const prevHeartbeat = realtime.heartbeatCallback;
+    const prevCb =
+      typeof prevHeartbeat === "function" ? prevHeartbeat : (() => {}) as any;
+
+    realtime.onHeartbeat((status) => {
+      // Preserve any existing heartbeat instrumentation.
+      try {
+        prevCb(status as any);
+      } catch {
+        // ignore
+      }
+
+      if (typeof navigator !== "undefined" && navigator.onLine === false) {
+        setConnectionState("error");
+        return;
+      }
+
+      if (status === "ok") {
+        setConnectionState((s) =>
+          s === "connecting" || s === "reconnecting" || s === "error"
+            ? "connected"
+            : s,
+        );
+        return;
+      }
+
+      if (status === "timeout" || status === "disconnected") {
+        setConnectionState("reconnecting");
+        return;
+      }
+
+      if (status === "error") {
+        setConnectionState("error");
+      }
+    });
+
+    const onOffline = () => {
+      setConnectionState("error");
+    };
+    const onOnline = () => {
+      setConnectionState("reconnecting");
+      setRetryNonce((n) => n + 1);
+    };
+
+    window.addEventListener("offline", onOffline);
+    window.addEventListener("online", onOnline);
+
+    return () => {
+      try {
+        realtime.onHeartbeat(prevCb);
+      } catch {
+        // ignore
+      }
+      window.removeEventListener("offline", onOffline);
+      window.removeEventListener("online", onOnline);
+    };
+  }, [enabled]);
+
+  return { sendCursor, broadcastGraphEvent, connectionState };
 }

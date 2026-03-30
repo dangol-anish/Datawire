@@ -26,6 +26,7 @@ interface Pipeline {
 
 interface Props {
   pipeline: Pipeline;
+  collabRoom: string;
 }
 
 function stableGraphSnapshot(nodes: GraphJSON["nodes"], edges: GraphJSON["edges"]) {
@@ -67,7 +68,7 @@ function toPersistedGraphJSON(nodes: GraphJSON["nodes"], edges: GraphJSON["edges
   };
 }
 
-export function EditorClient({ pipeline }: Props) {
+export function EditorClient({ pipeline, collabRoom }: Props) {
   const { setNodes, setEdges, setSelectedNodeId, pushHistory, undo, redo } =
     useGraphStore();
   const nodes = useGraphStore((s) => s.nodes);
@@ -96,8 +97,9 @@ export function EditorClient({ pipeline }: Props) {
   const lastSavedGraphRef = useRef<string>("");
   const pendingAutoSaveRef = useRef<number | null>(null);
 
-  const { sendCursor, broadcastGraphEvent } = usePipelineCollaboration({
+  const { sendCursor, broadcastGraphEvent, connectionState } = usePipelineCollaboration({
     pipelineId: pipeline.id,
+    room: collabRoom,
     userId: myUserId,
     username: myUsername,
     enabled: collabEnabled,
@@ -463,6 +465,7 @@ export function EditorClient({ pipeline }: Props) {
         onRun={handleRun}
         onSave={handleSave}
         saveState={saveState}
+        collabState={connectionState}
         onDeleteSelected={handleDeleteSelected}
         onClear={handleClear}
         onShare={() => setShareOpen(true)}
