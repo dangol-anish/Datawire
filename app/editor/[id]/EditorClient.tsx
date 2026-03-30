@@ -16,6 +16,7 @@ import { useFileStore } from "@/store/fileStore";
 import { MobileDrawer } from "@/components/ui/MobileDrawer";
 import { NodePalette } from "@/components/canvas/NodePalette";
 import { recordRecentPipeline } from "@/lib/homeUiState";
+import { LuRedo2, LuUndo2, LuWorkflow } from "react-icons/lu";
 
 interface Pipeline {
   id: string;
@@ -516,27 +517,7 @@ export function EditorClient({ pipeline, collabRoom }: Props) {
           style={{ background: "#6366f1" }}
           title="Back to home"
         >
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-            <circle cx="3" cy="7" r="2" fill="white" />
-            <circle cx="11" cy="3" r="2" fill="white" />
-            <circle cx="11" cy="11" r="2" fill="white" />
-            <line
-              x1="5"
-              y1="6.5"
-              x2="9"
-              y2="3.5"
-              stroke="white"
-              strokeWidth="1.2"
-            />
-            <line
-              x1="5"
-              y1="7.5"
-              x2="9"
-              y2="10.5"
-              stroke="white"
-              strokeWidth="1.2"
-            />
-          </svg>
+          <LuWorkflow size={14} color="white" />
         </button>
         {!mobileEditingName && (
           <span
@@ -733,7 +714,7 @@ export function EditorClient({ pipeline, collabRoom }: Props) {
             disabled={historyLen === 0}
             title="Undo"
           >
-            ↺
+            <LuUndo2 size={16} className="mx-auto" />
           </button>
           <button
             onClick={handleRedo}
@@ -741,7 +722,7 @@ export function EditorClient({ pipeline, collabRoom }: Props) {
             disabled={futureLen === 0}
             title="Redo"
           >
-            ↻
+            <LuRedo2 size={16} className="mx-auto" />
           </button>
           <button
             onClick={() => void handleSave()}

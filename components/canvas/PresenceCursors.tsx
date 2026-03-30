@@ -2,6 +2,7 @@
 
 import React from "react";
 import { usePresenceStore } from "@/store/presenceStore";
+import { LuMousePointer2 } from "react-icons/lu";
 
 export function PresenceCursors({
   myUserId,
@@ -82,20 +83,14 @@ export function PresenceCursors({
                 </div>
               </div>
 
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 18 18"
-                style={{ display: "block" }}
-              >
-                <path
-                  d="M3 2 L14 9 L9 10.5 L7 16 Z"
-                  fill={c.color}
-                  fillOpacity={0.92}
-                  stroke="rgba(0,0,0,0.35)"
-                  strokeWidth="1"
-                />
-              </svg>
+              <LuMousePointer2
+                size={18}
+                style={{
+                  display: "block",
+                  color: c.color,
+                  filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.45))",
+                }}
+              />
             </div>
           );
         })}

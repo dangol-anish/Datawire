@@ -4,6 +4,17 @@ import React from "react";
 import Link from "next/link";
 import { useGraphStore } from "@/store/graphStore";
 import { useExecutionStore } from "@/store/executionStore";
+import {
+  LuEraser,
+  LuLoaderCircle,
+  LuPlay,
+  LuRedo2,
+  LuSave,
+  LuShare2,
+  LuTrash2,
+  LuUndo2,
+  LuWorkflow,
+} from "react-icons/lu";
 
 interface ToolbarProps {
   pipelineName: string;
@@ -99,27 +110,7 @@ export function EditorToolbar({
           style={{ background: "#6366f1" }}
           title="Back to home"
         >
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-            <circle cx="3" cy="7" r="2" fill="white" />
-            <circle cx="11" cy="3" r="2" fill="white" />
-            <circle cx="11" cy="11" r="2" fill="white" />
-            <line
-              x1="5"
-              y1="6.5"
-              x2="9"
-              y2="3.5"
-              stroke="white"
-              strokeWidth="1.2"
-            />
-            <line
-              x1="5"
-              y1="7.5"
-              x2="9"
-              y2="10.5"
-              stroke="white"
-              strokeWidth="1.2"
-            />
-          </svg>
+          <LuWorkflow size={14} color="white" />
         </Link>
         {!editingName && (
           <span
@@ -252,21 +243,7 @@ export function EditorToolbar({
         className="flex items-center justify-center w-7 h-7 rounded-md text-slate-400 disabled:opacity-30 hover:text-slate-200 hover:bg-white/5 transition-colors"
         title="Undo (Ctrl+Z)"
       >
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 14 14"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-        >
-          <path d="M2 5h5a4 4 0 0 1 0 8H4" strokeLinecap="round" />
-          <path
-            d="M2 5l2.5-2.5M2 5l2.5 2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
+        <LuUndo2 size={14} />
       </button>
       <button
         onClick={onRedo ?? redo}
@@ -274,21 +251,7 @@ export function EditorToolbar({
         className="flex items-center justify-center w-7 h-7 rounded-md text-slate-400 disabled:opacity-30 hover:text-slate-200 hover:bg-white/5 transition-colors"
         title="Redo"
       >
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 14 14"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-        >
-          <path d="M12 5H7a4 4 0 0 0 0 8h3" strokeLinecap="round" />
-          <path
-            d="M12 5l-2.5-2.5M12 5l-2.5 2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
+        <LuRedo2 size={14} />
       </button>
 
       <div className="w-px h-5 bg-white/10 mx-1" />
@@ -300,6 +263,7 @@ export function EditorToolbar({
           className="flex items-center gap-1.5 px-3 h-7 rounded-md text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 transition-colors"
           title="Share / Invite"
         >
+          <LuShare2 size={14} />
           <span>Share</span>
           {(pendingRequestsCount ?? 0) > 0 && (
             <span
@@ -322,17 +286,7 @@ export function EditorToolbar({
         onClick={onSave}
         className="flex items-center gap-2 px-3 h-7 rounded-md text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 transition-colors"
       >
-        <svg
-          width="12"
-          height="12"
-          viewBox="0 0 12 12"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-        >
-          <path d="M2 1h6.5L10 2.5V10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V1z" />
-          <path d="M4 1v3h4V1M3 6h6" strokeLinecap="round" />
-        </svg>
+        <LuSave size={14} />
         <span>Save</span>
         {saveState && (
           <span
@@ -370,18 +324,7 @@ export function EditorToolbar({
         className="flex items-center gap-1.5 px-3 h-7 rounded-md text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 transition-colors disabled:opacity-40"
         title="Delete selected node"
       >
-        <svg
-          width="12"
-          height="12"
-          viewBox="0 0 12 12"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-        >
-          <path d="M2 3h8" strokeLinecap="round" />
-          <path d="M4.5 3V2.2A1.2 1.2 0 0 1 5.7 1h.6a1.2 1.2 0 0 1 1.2 1.2V3" />
-          <path d="M3.3 3.2l.4 7.5A1 1 0 0 0 4.7 11h2.6a1 1 0 0 0 1-.9l.4-7.5" />
-        </svg>
+        <LuTrash2 size={14} />
         Delete
       </button>
 
@@ -391,6 +334,7 @@ export function EditorToolbar({
         className="flex items-center gap-1.5 px-3 h-7 rounded-md text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 transition-colors"
         title="Clear all nodes and edges"
       >
+        <LuEraser size={14} />
         Clear
       </button>
 
@@ -407,29 +351,12 @@ export function EditorToolbar({
       >
         {isRunning ? (
           <>
-            <svg
-              className="animate-spin"
-              width="12"
-              height="12"
-              viewBox="0 0 12 12"
-              fill="none"
-            >
-              <circle
-                cx="6"
-                cy="6"
-                r="4.5"
-                stroke="white"
-                strokeWidth="1.5"
-                strokeDasharray="7 14"
-              />
-            </svg>
+            <LuLoaderCircle size={14} className="animate-spin" />
             Running…
           </>
         ) : (
           <>
-            <svg width="10" height="12" viewBox="0 0 10 12" fill="white">
-              <path d="M1 1l8 5-8 5V1z" />
-            </svg>
+            <LuPlay size={14} />
             Run
           </>
         )}

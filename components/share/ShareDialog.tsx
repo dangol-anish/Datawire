@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import { LuX } from "react-icons/lu";
 
 type Collaborator = {
   user_id: string;
@@ -210,17 +211,7 @@ export function ShareDialog({
             className="text-slate-400 hover:text-white transition-colors"
             title="Close"
           >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 16 16"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.7"
-              strokeLinecap="round"
-            >
-              <path d="M4 4l8 8M12 4L4 12" />
-            </svg>
+            <LuX size={16} />
           </button>
         </div>
 

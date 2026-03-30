@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
 import clsx from "clsx";
 import type { PipelineTemplate } from "@/lib/pipelineTemplates";
+import { LuPlus, LuSearch, LuStar, LuWorkflow, LuX } from "react-icons/lu";
 import {
   readPinnedPipelineIds,
   readRecentPipelines,
@@ -297,27 +298,7 @@ export function HomeClient({
                 style={{ background: "#6366f1" }}
                 title="Home"
               >
-                <svg width="18" height="18" viewBox="0 0 14 14" fill="none">
-                  <circle cx="3" cy="7" r="2" fill="white" />
-                  <circle cx="11" cy="3" r="2" fill="white" />
-                  <circle cx="11" cy="11" r="2" fill="white" />
-                  <line
-                    x1="5"
-                    y1="6.5"
-                    x2="9"
-                    y2="3.5"
-                    stroke="white"
-                    strokeWidth="1.2"
-                  />
-                  <line
-                    x1="5"
-                    y1="7.5"
-                    x2="9"
-                    y2="10.5"
-                    stroke="white"
-                    strokeWidth="1.2"
-                  />
-                </svg>
+                <LuWorkflow size={18} color="white" />
               </div>
               <div className="min-w-0">
                 <div className="text-sm font-semibold text-white truncate">
@@ -349,19 +330,7 @@ export function HomeClient({
                       }}
                     />
                     <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">
-                      <svg
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                      >
-                        <path
-                          d="M21 21l-4.3-4.3m1.8-5.2a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z"
-                          strokeLinecap="round"
-                        />
-                      </svg>
+                      <LuSearch size={14} />
                     </div>
                     {query.trim().length > 0 && (
                       <button
@@ -370,7 +339,7 @@ export function HomeClient({
                         className="absolute right-1.5 top-1/2 -translate-y-1/2 h-7 w-7 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition-colors"
                         title="Clear search"
                       >
-                        ✕
+                        <LuX size={14} />
                       </button>
                     )}
                   </div>
@@ -389,19 +358,7 @@ export function HomeClient({
                   title={searchOpen ? "Close search" : "Search"}
                   aria-label={searchOpen ? "Close search" : "Search"}
                 >
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  >
-                    <path
-                      d="M21 21l-4.3-4.3m1.8-5.2a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z"
-                      strokeLinecap="round"
-                    />
-                  </svg>
+                  {searchOpen ? <LuX size={16} /> : <LuSearch size={16} />}
                 </button>
               </div>
 
@@ -427,7 +384,7 @@ export function HomeClient({
                 {creating ? (
                   <span className="text-xs">…</span>
                 ) : (
-                  <span className="text-xl leading-none">+</span>
+                  <LuPlus size={18} />
                 )}
               </button>
 
@@ -675,21 +632,11 @@ export function HomeClient({
                             : "Pin pipeline"
                         }
                       >
-                        <svg
-                          width="14"
-                          height="14"
-                          viewBox="0 0 24 24"
+                        <LuStar
+                          size={16}
+                          color={pinnedSet.has(p.id) ? "#6366F1" : "currentColor"}
                           fill={pinnedSet.has(p.id) ? "#6366F1" : "none"}
-                          stroke={
-                            pinnedSet.has(p.id) ? "#6366F1" : "currentColor"
-                          }
-                          strokeWidth="2"
-                        >
-                          <path
-                            d="M12 17.5 6.2 20.7l1.1-6.6L2.5 9.8l6.7-1 2.8-6.1 2.8 6.1 6.7 1-4.8 4.3 1.1 6.6z"
-                            strokeLinejoin="round"
-                          />
-                        </svg>
+                        />
                       </button>
                       <span
                         className="text-xs font-medium px-2 py-1 rounded-md text-slate-400 "
@@ -815,21 +762,13 @@ export function HomeClient({
                               : "Pin pipeline"
                           }
                         >
-                          <svg
-                            width="14"
-                            height="14"
-                            viewBox="0 0 24 24"
-                            fill={pinnedSet.has(p.id) ? "#6366F1" : "none"}
-                            stroke={
+                          <LuStar
+                            size={16}
+                            color={
                               pinnedSet.has(p.id) ? "#6366F1" : "currentColor"
                             }
-                            strokeWidth="2"
-                          >
-                            <path
-                              d="M12 17.5 6.2 20.7l1.1-6.6L2.5 9.8l6.7-1 2.8-6.1 2.8 6.1 6.7 1-4.8 4.3 1.1 6.6z"
-                              strokeLinejoin="round"
-                            />
-                          </svg>
+                            fill={pinnedSet.has(p.id) ? "#6366F1" : "none"}
+                          />
                         </button>
                         <span
                           className="text-xs font-medium px-2 py-1 rounded-md text-slate-400 border border-white/10"
@@ -951,11 +890,11 @@ export function HomeClient({
                 </div>
                 <button
                   type="button"
-                  className="h-5 w-5  text-slate-300 hover:text-white  transition-colors"
+                  className="h-8 w-8 rounded-lg text-slate-300 hover:text-white hover:bg-white/5 transition-colors flex items-center justify-center"
                   onClick={() => setNewOpen(false)}
                   title="Close"
                 >
-                  ✕
+                  <LuX size={16} />
                 </button>
               </div>
 

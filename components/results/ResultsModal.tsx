@@ -6,6 +6,7 @@ import { useGraphStore } from "@/store/graphStore";
 import { isExecutionError } from "@/types";
 import { VisualiseChart } from "@/components/nodes/VisualiseChart";
 import type { DataTable } from "@/types";
+import { LuX } from "react-icons/lu";
 
 function DataTablePreview({ data }: { data: DataTable }) {
   const maxRows = 25;
@@ -150,17 +151,7 @@ export function ResultsModal() {
             className="text-slate-400 hover:text-white transition-colors"
             title="Close (Esc)"
           >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 16 16"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.7"
-              strokeLinecap="round"
-            >
-              <path d="M4 4l8 8M12 4L4 12" />
-            </svg>
+            <LuX size={16} />
           </button>
         </div>
 
@@ -201,4 +192,3 @@ export function ResultsModal() {
     </div>
   );
 }
-
