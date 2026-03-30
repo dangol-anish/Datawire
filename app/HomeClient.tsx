@@ -426,7 +426,7 @@ export function HomeClient({
               <button
                 onClick={() => setNewOpen(true)}
                 className={clsx(
-                  "h-9 w-9 rounded-lg text-sm font-semibold text-white hover:brightness-110 transition-all flex items-center justify-center",
+                  "h-9 w-9 rounded-xl text-sm font-semibold text-white hover:brightness-110 transition-all flex items-center justify-center",
                   creating
                     ? "bg-indigo-700/70 text-white/90 cursor-not-allowed"
                     : "",
@@ -452,7 +452,7 @@ export function HomeClient({
                 <button
                   type="button"
                   onClick={() => setMenuOpen((v) => !v)}
-                  className="h-9 w-9 rounded-lg border border-white/10 text-slate-300 hover:text-white hover:bg-white/5 hover:border-white/20 transition-colors flex items-center justify-center"
+                  className="h-9 w-9 rounded-xl border border-white/10 text-slate-300 hover:text-white hover:bg-white/5 hover:border-white/20 transition-colors flex items-center justify-center"
                   title="Menu"
                   aria-label="Menu"
                 >
