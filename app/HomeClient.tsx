@@ -15,7 +15,10 @@ type PipelineRow = {
   updated_at?: string;
 };
 
-type SharedPipelineRow = PipelineRow & { role: "viewer" | "editor"; user_id?: string };
+type SharedPipelineRow = PipelineRow & {
+  role: "viewer" | "editor";
+  user_id?: string;
+};
 
 function formatDate(iso?: string | null) {
   if (!iso) return "";
@@ -158,7 +161,6 @@ export function HomeClient({
                   className="rounded-2xl border border-border bg-surface p-5 flex flex-col gap-3"
                 >
                   <div className="flex items-start gap-3">
-                    <div className="w-2 h-2 rounded-full bg-emerald-500 mt-2" />
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-semibold text-white truncate">
                         {t.name}
@@ -168,7 +170,10 @@ export function HomeClient({
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 mt-1">
+                  <div className="flex items-center mt-1 justify-between gap-2">
+                    <span className="text-[11px] text-slate-600">
+                      {t.graph_json.nodes.length} nodes
+                    </span>
                     <button
                       onClick={() => createFromTemplate(t.id)}
                       disabled={templateBusy !== null}
@@ -181,10 +186,6 @@ export function HomeClient({
                     >
                       {templateBusy === t.id ? "Creating…" : "Use template"}
                     </button>
-                    <div className="flex-1" />
-                    <span className="text-[11px] font-mono text-slate-600">
-                      {t.graph_json.nodes.length} nodes
-                    </span>
                   </div>
                 </div>
               ))}
@@ -225,24 +226,21 @@ export function HomeClient({
                     </p>
                   </div>
                   <span
-                    className="text-xs font-medium px-2 py-1 rounded-md flex-shrink-0"
-                    style={{
-                      background: p.is_public
-                        ? "rgba(16,185,129,0.12)"
-                        : "rgba(148,163,184,0.10)",
-                      color: p.is_public ? "#6ee7b7" : "#cbd5e1",
-                      border: "1px solid rgba(255,255,255,0.06)",
-                    }}
-                    title={p.is_public ? "Anyone with the link can view" : "Only invited collaborators can view"}
+                    className="text-xs font-medium px-2 py-1 rounded-md flex-shrink-0 text-slate-400"
+                    title={
+                      p.is_public
+                        ? "Anyone with the link can view"
+                        : "Only invited collaborators can view"
+                    }
                   >
                     {p.is_public ? "Public" : "Private"}
                   </span>
                 </div>
 
-                <div className="flex items-center justify-between gap-2 mt-2">
+                <div className="flex items-center justify-end gap-2 mt-2 ">
                   <Link
                     href={`/p/${p.id}`}
-                    className="h-8 px-3 rounded-md text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 transition-colors"
+                    className="h-8 px-3 rounded-md text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 transition-colors flex items-center"
                     title="Open share view (requires pipeline to be public)"
                   >
                     Shared view
@@ -250,7 +248,7 @@ export function HomeClient({
 
                   <Link
                     href={`/editor/${p.id}`}
-                    className="h-8 px-3 rounded-md bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-xs font-semibold text-white transition-colors"
+                    className="h-8 px-3 rounded-md text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 transition-colors flex items-center"
                   >
                     Open editor
                   </Link>
@@ -281,32 +279,30 @@ export function HomeClient({
                       </p>
                     </div>
                     <span
-                      className="text-xs font-medium px-2 py-1 rounded-md flex-shrink-0"
-                      style={{
-                        background:
-                          p.role === "editor"
-                            ? "rgba(99,102,241,0.18)"
-                            : "rgba(148,163,184,0.10)",
-                        color: p.role === "editor" ? "#c7d2fe" : "#cbd5e1",
-                        border: "1px solid rgba(255,255,255,0.06)",
-                      }}
-                      title={p.role === "editor" ? "You can edit this pipeline" : "Read-only access"}
+                      className="text-xs font-medium px-2 py-1 rounded-md flex-shrink-0 text-slate-400"
+                      title={
+                        p.role === "editor"
+                          ? "You can edit this pipeline"
+                          : "Read-only access"
+                      }
                     >
                       {p.role === "editor" ? "Editor" : "Viewer"}
                     </span>
                   </div>
 
-                  <div className="flex items-center justify-between gap-2 mt-2">
+                  <div className="flex items-center justify-end gap-2 mt-2">
                     <Link
                       href={`/p/${p.id}`}
-                      className="h-8 px-3 rounded-md text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 transition-colors"
+                      className="h-8 px-3 rounded-md text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 transition-colors flex items-center"
                     >
                       Shared view
                     </Link>
 
                     <Link
-                      href={p.role === "editor" ? `/editor/${p.id}` : `/p/${p.id}`}
-                      className="h-8 px-3 rounded-md bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-xs font-semibold text-white transition-colors"
+                      href={
+                        p.role === "editor" ? `/editor/${p.id}` : `/p/${p.id}`
+                      }
+                      className="h-8 px-3 rounded-md text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 transition-colors flex items-center"
                     >
                       {p.role === "editor" ? "Open editor" : "Open"}
                     </Link>
