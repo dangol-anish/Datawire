@@ -10,6 +10,11 @@ type RecentPipeline = {
 const RECENT_KEY = "dw_recent_pipelines";
 const PINNED_KEY = "dw_pinned_pipeline_ids";
 
+function scopedKey(base: string, scope?: string | null) {
+  const suffix = scope && typeof scope === "string" ? scope : "global";
+  return `${base}:${suffix}`;
+}
+
 function safeParseJson<T>(raw: string | null): T | null {
   if (!raw) return null;
   try {
@@ -19,9 +24,11 @@ function safeParseJson<T>(raw: string | null): T | null {
   }
 }
 
-export function readRecentPipelines(): RecentPipeline[] {
+export function readRecentPipelines(scope?: string | null): RecentPipeline[] {
   try {
-    const parsed = safeParseJson<unknown>(window.localStorage.getItem(RECENT_KEY));
+    const parsed = safeParseJson<unknown>(
+      window.localStorage.getItem(scopedKey(RECENT_KEY, scope)),
+    );
     if (!Array.isArray(parsed)) return [];
 
     return parsed
@@ -45,6 +52,7 @@ export function readRecentPipelines(): RecentPipeline[] {
 }
 
 export function recordRecentPipeline(input: {
+  scope?: string | null;
   id: string;
   name: string;
   href: string;
@@ -56,11 +64,12 @@ export function recordRecentPipeline(input: {
     accessedAt: Date.now(),
   };
 
-  const existing = readRecentPipelines().filter((p) => p.id !== input.id);
+  const key = scopedKey(RECENT_KEY, input.scope);
+  const existing = readRecentPipelines(input.scope).filter((p) => p.id !== input.id);
   const next = [nextEntry, ...existing].slice(0, 5);
 
   try {
-    window.localStorage.setItem(RECENT_KEY, JSON.stringify(next));
+    window.localStorage.setItem(key, JSON.stringify(next));
   } catch {
     // ignore
   }
@@ -68,9 +77,19 @@ export function recordRecentPipeline(input: {
   return next;
 }
 
-export function readPinnedPipelineIds(): string[] {
+export function clearRecentPipelines(scope?: string | null): void {
   try {
-    const parsed = safeParseJson<unknown>(window.localStorage.getItem(PINNED_KEY));
+    window.localStorage.removeItem(scopedKey(RECENT_KEY, scope));
+  } catch {
+    // ignore
+  }
+}
+
+export function readPinnedPipelineIds(scope?: string | null): string[] {
+  try {
+    const parsed = safeParseJson<unknown>(
+      window.localStorage.getItem(scopedKey(PINNED_KEY, scope)),
+    );
     if (!Array.isArray(parsed)) return [];
     return parsed.filter((v) => typeof v === "string") as string[];
   } catch {
@@ -78,11 +97,10 @@ export function readPinnedPipelineIds(): string[] {
   }
 }
 
-export function setPinnedPipelineIds(ids: string[]): void {
+export function setPinnedPipelineIds(scope: string | null | undefined, ids: string[]): void {
   try {
-    window.localStorage.setItem(PINNED_KEY, JSON.stringify(ids));
+    window.localStorage.setItem(scopedKey(PINNED_KEY, scope), JSON.stringify(ids));
   } catch {
     // ignore
   }
 }
-

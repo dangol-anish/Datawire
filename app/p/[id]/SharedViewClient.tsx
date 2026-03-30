@@ -25,8 +25,11 @@ export function SharedViewClient({ pipeline }: { pipeline: any }) {
   const [forking, setForking] = useState(false);
 
   useEffect(() => {
+    const userId = session?.user?.id;
+    if (!userId) return;
     try {
       recordRecentPipeline({
+        scope: userId,
         id: pipeline.id,
         name: pipeline.name,
         href: `/p/${pipeline.id}`,
@@ -34,7 +37,7 @@ export function SharedViewClient({ pipeline }: { pipeline: any }) {
     } catch {
       // ignore
     }
-  }, [pipeline.id, pipeline.name]);
+  }, [pipeline.id, pipeline.name, session?.user?.id]);
 
   useEffect(() => {
     if (!session?.user?.id) return;

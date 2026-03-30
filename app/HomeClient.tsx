@@ -18,6 +18,7 @@ import {
   LuX,
 } from "react-icons/lu";
 import {
+  clearRecentPipelines,
   readPinnedPipelineIds,
   readRecentPipelines,
   recordRecentPipeline,
@@ -60,7 +61,12 @@ export function HomeClient({
   pipelines: PipelineRow[];
   sharedPipelines: SharedPipelineRow[];
   templates: PipelineTemplate[];
-  user: { name?: string | null; email?: string | null; image?: string | null };
+  user: {
+    id: string;
+    name?: string | null;
+    email?: string | null;
+    image?: string | null;
+  };
 }) {
   const router = useRouter();
   const [creating, setCreating] = useState(false);
@@ -96,7 +102,7 @@ export function HomeClient({
       const next = prev.includes(pipelineId)
         ? prev.filter((id) => id !== pipelineId)
         : [pipelineId, ...prev];
-      setPinnedPipelineIds(next);
+      setPinnedPipelineIds(user.id, next);
       return next;
     });
   };
@@ -212,10 +218,10 @@ export function HomeClient({
   }, []);
 
   useEffect(() => {
-    setPinnedIds(readPinnedPipelineIds());
-    setRecent(readRecentPipelines());
+    setPinnedIds(readPinnedPipelineIds(user.id));
+    setRecent(readRecentPipelines(user.id));
 
-    const refresh = () => setRecent(readRecentPipelines());
+    const refresh = () => setRecent(readRecentPipelines(user.id));
     window.addEventListener("focus", refresh);
     const onVis = () => {
       if (document.visibilityState === "visible") refresh();
@@ -225,7 +231,7 @@ export function HomeClient({
       window.removeEventListener("focus", refresh);
       document.removeEventListener("visibilitychange", onVis);
     };
-  }, []);
+  }, [user.id]);
 
   useEffect(() => {
     try {
@@ -607,11 +613,7 @@ export function HomeClient({
               <button
                 type="button"
                 onClick={() => {
-                  try {
-                    window.localStorage.removeItem("dw_recent_pipelines");
-                  } catch {
-                    // ignore
-                  }
+                  clearRecentPipelines(user.id);
                   setRecent([]);
                 }}
                 className="text-xs text-slate-500 hover:text-slate-300"
@@ -629,6 +631,7 @@ export function HomeClient({
                     href={r.href}
                     onClick={() => {
                       const next = recordRecentPipeline({
+                        scope: user.id,
                         id: r.id,
                         name: r.name,
                         href: r.href,
@@ -794,6 +797,7 @@ export function HomeClient({
                       href={`/p/${p.id}`}
                       onClick={() => {
                         const next = recordRecentPipeline({
+                          scope: user.id,
                           id: p.id,
                           name: p.name,
                           href: `/p/${p.id}`,
@@ -810,6 +814,7 @@ export function HomeClient({
                       href={`/editor/${p.id}`}
                       onClick={() => {
                         const next = recordRecentPipeline({
+                          scope: user.id,
                           id: p.id,
                           name: p.name,
                           href: `/editor/${p.id}`,
@@ -926,6 +931,7 @@ export function HomeClient({
                         href={`/p/${p.id}`}
                         onClick={() => {
                           const next = recordRecentPipeline({
+                            scope: user.id,
                             id: p.id,
                             name: p.name,
                             href: `/p/${p.id}`,
@@ -947,6 +953,7 @@ export function HomeClient({
                               ? `/editor/${p.id}`
                               : `/p/${p.id}`;
                           const next = recordRecentPipeline({
+                            scope: user.id,
                             id: p.id,
                             name: p.name,
                             href,

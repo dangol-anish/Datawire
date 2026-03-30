@@ -156,8 +156,10 @@ export function EditorClient({ pipeline, collabRoom }: Props) {
   }, [pipelineName]);
 
   useEffect(() => {
+    if (!myUserId) return;
     try {
       recordRecentPipeline({
+        scope: myUserId,
         id: pipeline.id,
         name: pipelineName,
         href: `/editor/${pipeline.id}`,
@@ -165,7 +167,7 @@ export function EditorClient({ pipeline, collabRoom }: Props) {
     } catch {
       // ignore
     }
-  }, [pipeline.id, pipelineName]);
+  }, [pipeline.id, pipelineName, myUserId]);
 
   useEffect(() => {
     if (!mobileEditingName) return;
