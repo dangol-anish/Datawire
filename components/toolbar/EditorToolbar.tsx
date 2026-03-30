@@ -5,15 +5,15 @@ import Link from "next/link";
 import { useGraphStore } from "@/store/graphStore";
 import { useExecutionStore } from "@/store/executionStore";
 import {
-  LuAlertTriangle,
-  LuCheckCircle2,
   LuCircle,
+  LuCircleCheck,
   LuEraser,
   LuLoaderCircle,
   LuPlay,
   LuRedo2,
   LuSave,
   LuShare2,
+  LuTriangleAlert,
   LuTrash2,
   LuUndo2,
   LuWorkflow,
@@ -90,9 +90,9 @@ export function EditorToolbar({
     saveState === "saving" ? (
       <LuLoaderCircle size={14} className="animate-spin" aria-hidden="true" />
     ) : saveState === "saved" ? (
-      <LuCheckCircle2 size={14} aria-hidden="true" />
+      <LuCircleCheck size={14} aria-hidden="true" />
     ) : saveState === "error" ? (
-      <LuAlertTriangle size={14} aria-hidden="true" />
+      <LuTriangleAlert size={14} aria-hidden="true" />
     ) : (
       <LuCircle size={14} aria-hidden="true" />
     );
