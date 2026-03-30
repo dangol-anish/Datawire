@@ -344,15 +344,52 @@ export function HomeClient({
             <div className="flex-1" />
 
             <div className="flex items-center justify-end gap-2">
-              <div className="flex items-center gap-2">
+              <div
+                className={clsx(
+                  "h-9 rounded-xl border bg-surface overflow-hidden flex items-center transition-[width,border-color] duration-200",
+                  "hover:border-white/20",
+                  searchOpen ? "w-64" : "w-9",
+                  query.trim().length > 0
+                    ? "border-indigo-500/40"
+                    : "border-white/10",
+                )}
+                role="search"
+                aria-label="Search pipelines"
+                onMouseDown={(e) => {
+                  // Keep it feeling like a single expanding component.
+                  // Prevent the container click from stealing focus from the input.
+                  if (searchOpen && e.target instanceof HTMLElement) {
+                    if (e.target.tagName.toLowerCase() === "input") return;
+                  }
+                  e.preventDefault();
+                  setSearchOpen(true);
+                }}
+                title={searchOpen ? undefined : "Search"}
+              >
+                <button
+                  type="button"
+                  className={clsx(
+                    "h-9 w-9 flex items-center justify-center transition-colors",
+                    query.trim().length > 0 ? "text-indigo-300" : "text-slate-300",
+                    "hover:bg-white/5 hover:text-white",
+                  )}
+                  onClick={() => {
+                    setSearchOpen(true);
+                    searchInputRef.current?.focus();
+                  }}
+                  aria-label="Open search"
+                >
+                  <LuSearch size={16} />
+                </button>
+
                 {searchOpen && (
-                  <div className="relative">
+                  <>
                     <input
                       ref={searchInputRef}
                       value={query}
                       onChange={(e) => setQuery(e.target.value)}
                       placeholder="Search…"
-                      className="h-9 w-56 pl-9 pr-9 rounded-xl bg-surface border border-border text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
+                      className="h-9 flex-1 bg-transparent text-sm text-white placeholder:text-slate-500 focus:outline-none"
                       onKeyDown={(e) => {
                         if (e.key === "Escape") {
                           e.preventDefault();
@@ -360,37 +397,30 @@ export function HomeClient({
                         }
                       }}
                     />
-                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">
-                      <LuSearch size={14} />
-                    </div>
-                    {query.trim().length > 0 && (
+
+                    {query.trim().length > 0 ? (
                       <button
                         type="button"
                         onClick={() => setQuery("")}
-                        className="absolute right-1.5 top-1/2 -translate-y-1/2 h-7 w-7 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition-colors"
+                        className="h-9 w-9 flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/5 transition-colors"
                         title="Clear search"
+                        aria-label="Clear search"
                       >
-                        <LuX size={14} />
+                        <LuX size={16} />
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setSearchOpen(false)}
+                        className="h-9 w-9 flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/5 transition-colors"
+                        title="Close search"
+                        aria-label="Close search"
+                      >
+                        <LuX size={16} />
                       </button>
                     )}
-                  </div>
+                  </>
                 )}
-
-                <button
-                  type="button"
-                  onClick={() => setSearchOpen((v) => !v)}
-                  className={clsx(
-                    "h-9 w-9 rounded-lg border transition-colors flex items-center justify-center",
-                    "hover:bg-white/5 hover:border-white/20",
-                    query.trim().length > 0
-                      ? "text-indigo-400 border-indigo-500/40"
-                      : "text-slate-300 border-white/10",
-                  )}
-                  title={searchOpen ? "Close search" : "Search"}
-                  aria-label={searchOpen ? "Close search" : "Search"}
-                >
-                  {searchOpen ? <LuX size={16} /> : <LuSearch size={16} />}
-                </button>
               </div>
 
               <button
@@ -519,9 +549,9 @@ export function HomeClient({
               type="button"
               onClick={() => setTab("your")}
               className={clsx(
-                "px-2 h-7 rounded-lg text-sm font-semibold transition-colors",
+                "px-2 h-7 rounded-lg text-sm  transition-colors",
                 tab === "your"
-                  ? "bg-white/10 text-white"
+                  ? "bg-white/10 text-white font-semibold"
                   : "text-slate-300 hover:text-white hover:bg-white/5",
               )}
             >
@@ -534,9 +564,9 @@ export function HomeClient({
               type="button"
               onClick={() => setTab("shared")}
               className={clsx(
-                "px-3 h-9 rounded-lg text-sm font-semibold transition-colors",
+                "px-3 h-9 rounded-lg text-sm  transition-colors",
                 tab === "shared"
-                  ? "bg-white/10 text-white"
+                  ? "bg-white/10 text-white font-semibold"
                   : "text-slate-300 hover:text-white hover:bg-white/5",
               )}
             >
@@ -605,19 +635,21 @@ export function HomeClient({
                     }}
                     className="rounded-2xl border border-border bg-surface p-4 flex items-center gap-3 hover:bg-white/5 transition-colors"
                   >
-                    <div
+                    {/* <div
                       className="w-2 h-2 rounded-full"
                       style={{ background: "#6366f1" }}
-                    />
+                    /> */}
                     <div className="min-w-0 flex-1">
                       <div className="text-sm font-semibold text-white truncate">
                         {r.name}
                       </div>
-                      <div className="text-xs text-slate-500 truncate">
+                      {/* <div className="text-xs text-slate-500 truncate">
                         {r.href}
-                      </div>
+                      </div> */}
                     </div>
-                    <span className="text-xs text-slate-400">Open</span>
+                    <span className="text-xs text-slate-400 hover:text-accent">
+                      Open
+                    </span>
                   </Link>
                 ))}
             </div>
