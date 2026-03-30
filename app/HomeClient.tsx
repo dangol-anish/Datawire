@@ -622,7 +622,9 @@ export function HomeClient({
                           height="14"
                           viewBox="0 0 24 24"
                           fill={pinnedSet.has(p.id) ? "#6366F1" : "none"}
-                          stroke={pinnedSet.has(p.id) ? "#6366F1" : "currentColor"}
+                          stroke={
+                            pinnedSet.has(p.id) ? "#6366F1" : "currentColor"
+                          }
                           strokeWidth="2"
                         >
                           <path
@@ -632,7 +634,7 @@ export function HomeClient({
                         </svg>
                       </button>
                       <span
-                        className="text-xs font-medium px-2 py-1 rounded-md text-slate-400 border border-white/10"
+                        className="text-xs font-medium px-2 py-1 rounded-md text-slate-400 "
                         title={
                           p.is_public
                             ? "Anyone with the link can view"
