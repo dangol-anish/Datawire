@@ -18,6 +18,8 @@ import {
   LuWorkflow,
   LuX,
 } from "react-icons/lu";
+import { useConfirm } from "@/components/ui/ConfirmProvider";
+import { useToast } from "@/components/ui/ToastProvider";
 import {
   clearRecentPipelines,
   readPinnedPipelineIds,
@@ -85,6 +87,8 @@ export function HomeClient({
     Array<{ id: string; name: string; href: string; accessedAt: number }>
   >([]);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const toast = useToast();
+  const confirm = useConfirm();
   const [tab, setTab] = useState<HomeTab>(() => {
     if (pipelines.length > 0) return "your";
     if (sharedPipelines.length > 0) return "shared";
@@ -113,9 +117,12 @@ export function HomeClient({
 
   const deletePipeline = async (pipelineId: string, pipelineName: string) => {
     if (deletingId) return;
-    const ok = window.confirm(
-      `Delete “${pipelineName}”? This cannot be undone.`,
-    );
+    const ok = await confirm({
+      title: "Delete pipeline?",
+      description: `Delete “${pipelineName}”? This cannot be undone.`,
+      confirmText: "Delete",
+      dangerous: true,
+    });
     if (!ok) return;
 
     setDeletingId(pipelineId);
@@ -151,7 +158,7 @@ export function HomeClient({
 
       router.refresh();
     } catch (e: any) {
-      window.alert(typeof e?.message === "string" ? e.message : "Delete failed");
+      toast.error(typeof e?.message === "string" ? e.message : "Delete failed");
     } finally {
       setDeletingId(null);
     }
@@ -839,55 +846,58 @@ export function HomeClient({
                       >
                         <LuTrash2 size={16} />
                       </button>
-                      <span
-                        className="text-xs font-medium px-2 py-1 rounded-md text-slate-400 "
-                        title={
-                          p.is_public
-                            ? "Anyone with the link can view"
-                            : "Only invited collaborators can view"
-                        }
-                      >
-                        {p.is_public ? "Public" : "Private"}
-                      </span>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-end gap-2 mt-2 ">
-                    <Link
-                      href={`/p/${p.id}`}
-                      onClick={() => {
-                        const next = recordRecentPipeline({
-                          scope: user.id,
-                          id: p.id,
-                          name: p.name,
-                          href: `/p/${p.id}`,
-                        });
-                        setRecent(next);
-                      }}
-                      className="h-8 px-3 rounded-md text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 transition-colors flex items-center"
-                      title="Open share view (requires pipeline to be public)"
+                  <div className=" flex justify-between ">
+                    <span
+                      className="text-xs font-medium  py-1 rounded-md text-slate-400 flex items-end"
+                      title={
+                        p.is_public
+                          ? "Anyone with the link can view"
+                          : "Only invited collaborators can view"
+                      }
                     >
-                      Shared view
-                    </Link>
+                      {p.is_public ? "Public" : "Private"}
+                    </span>
+                    <div className="flex items-center justify-end gap-2 mt-2 ">
+                      <Link
+                        href={`/p/${p.id}`}
+                        onClick={() => {
+                          const next = recordRecentPipeline({
+                            scope: user.id,
+                            id: p.id,
+                            name: p.name,
+                            href: `/p/${p.id}`,
+                          });
+                          setRecent(next);
+                        }}
+                        className="h-8 px-3 rounded-md text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 transition-colors flex items-center"
+                        title="Open share view (requires pipeline to be public)"
+                      >
+                        Shared view
+                      </Link>
 
-                    <Link
-                      href={`/editor/${p.id}`}
-                      onClick={() => {
-                        const next = recordRecentPipeline({
-                          scope: user.id,
-                          id: p.id,
-                          name: p.name,
-                          href: `/editor/${p.id}`,
-                        });
-                        setRecent(next);
-                      }}
-                      className="h-8 px-3 rounded-md text-xs font-semibold text-white hover:brightness-110 transition-all flex items-center"
-                      style={{
-                        background: "linear-gradient(90deg, #a3a6ff, #8387ff)",
-                      }}
-                    >
-                      Open editor
-                    </Link>
+                      <Link
+                        href={`/editor/${p.id}`}
+                        onClick={() => {
+                          const next = recordRecentPipeline({
+                            scope: user.id,
+                            id: p.id,
+                            name: p.name,
+                            href: `/editor/${p.id}`,
+                          });
+                          setRecent(next);
+                        }}
+                        className="h-8 px-3 rounded-md text-xs font-semibold text-white hover:brightness-110 transition-all flex items-center"
+                        style={{
+                          background:
+                            "linear-gradient(90deg, #a3a6ff, #8387ff)",
+                        }}
+                      >
+                        Open editor
+                      </Link>
+                    </div>
                   </div>
                 </div>
               ))}

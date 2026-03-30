@@ -2,6 +2,8 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { LuX } from "react-icons/lu";
+import { useConfirm } from "@/components/ui/ConfirmProvider";
+import { useToast } from "@/components/ui/ToastProvider";
 
 type Collaborator = {
   user_id: string;
@@ -54,6 +56,8 @@ export function ShareDialog({
   isPublic: boolean;
   onPipelineUpdated?: (next: { name?: string; is_public?: boolean }) => void;
 }) {
+  const confirm = useConfirm();
+  const toast = useToast();
   const [role, setRole] = useState<"viewer" | "editor">("viewer");
   const [busy, setBusy] = useState(false);
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
@@ -89,7 +93,10 @@ export function ShareDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, isPublic, pipelineName]);
 
-  const updateSettings = async (payload: { name?: string; is_public?: boolean }) => {
+  const updateSettings = async (payload: {
+    name?: string;
+    is_public?: boolean;
+  }) => {
     if (!canManage || savingSettings) return;
     setSavingSettings(true);
     setError(null);
@@ -155,7 +162,12 @@ export function ShareDialog({
   };
 
   const removeCollaborator = async (userId: string) => {
-    const ok = window.confirm("Remove collaborator access?");
+    const ok = await confirm({
+      title: "Remove collaborator?",
+      description: "This user will lose access to this pipeline.",
+      confirmText: "Remove",
+      dangerous: true,
+    });
     if (!ok) return;
     const res = await fetch(`/api/pipelines/${pipelineId}/collaborators`, {
       method: "PATCH",
@@ -163,9 +175,16 @@ export function ShareDialog({
       body: JSON.stringify({ action: "remove", userId }),
     });
     if (res.ok) await load();
+    else {
+      const body = await safeJson(res);
+      toast.error(body?.error ?? "Failed to remove collaborator");
+    }
   };
 
-  const actOnRequest = async (requestId: string, action: "approve" | "deny") => {
+  const actOnRequest = async (
+    requestId: string,
+    action: "approve" | "deny",
+  ) => {
     const res = await fetch(
       `/api/pipelines/${pipelineId}/access-requests/${requestId}`,
       {
@@ -194,7 +213,7 @@ export function ShareDialog({
         className="relative rounded-2xl overflow-hidden"
         style={{
           width: "min(820px, 92vw)",
-          height: "min(640px, 86vh)",
+          height: "min(640px, 50vh)",
           background: "#0d0f14",
           border: "1px solid #1e2330",
           boxShadow: "0 40px 120px rgba(0,0,0,0.75)",
@@ -245,7 +264,10 @@ export function ShareDialog({
                       />
                       <button
                         onClick={saveName}
-                        disabled={savingSettings || draftName.trim() === pipelineName.trim()}
+                        disabled={
+                          savingSettings ||
+                          draftName.trim() === pipelineName.trim()
+                        }
                         className="h-9 px-3 rounded-lg text-sm font-semibold disabled:opacity-60 text-white border border-white/10 hover:bg-white/5 transition-colors"
                       >
                         Save
@@ -266,18 +288,14 @@ export function ShareDialog({
                         Public link enabled
                       </span>
                     </label>
-                    <p className="text-xs text-slate-600 mt-1">
-                      When public, anyone with the link can view the pipeline at{" "}
-                      <span className="font-mono text-slate-400">
-                        {`/p/${pipelineId}`}
-                      </span>
-                      .
-                    </p>
                   </div>
                 </div>
               </div>
 
-              <div className="rounded-xl p-4" style={{ border: "1px solid #1e2330", background: "#0b0d12" }}>
+              <div
+                className="rounded-xl p-4"
+                style={{ border: "1px solid #1e2330", background: "#0b0d12" }}
+              >
                 <p className="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-3">
                   Invite Link (Reusable)
                 </p>
@@ -288,7 +306,10 @@ export function ShareDialog({
                       setRole(e.target.value === "editor" ? "editor" : "viewer")
                     }
                     className="h-9 px-3 rounded-lg text-sm text-white outline-none"
-                    style={{ background: "#161b27", border: "1px solid #2a3347" }}
+                    style={{
+                      background: "#161b27",
+                      border: "1px solid #2a3347",
+                    }}
                   >
                     <option value="viewer">Viewer (read-only)</option>
                     <option value="editor">Editor (can save)</option>
@@ -303,19 +324,22 @@ export function ShareDialog({
                   </button>
                 </div>
 
-                {error && (
-                  <p className="text-sm text-red-300 mt-3">{error}</p>
-                )}
+                {error && <p className="text-sm text-red-300 mt-3">{error}</p>}
 
                 {inviteUrl && (
                   <div className="mt-3">
-                    <p className="text-xs text-slate-500 mb-1">Copy this link:</p>
+                    <p className="text-xs text-slate-500 mb-1">
+                      Copy this link:
+                    </p>
                     <div className="flex items-center gap-2">
                       <input
                         readOnly
                         value={inviteUrl}
                         className="flex-1 h-9 px-3 rounded-lg text-sm text-white outline-none font-mono"
-                        style={{ background: "#161b27", border: "1px solid #2a3347" }}
+                        style={{
+                          background: "#161b27",
+                          border: "1px solid #2a3347",
+                        }}
                       />
                       <button
                         onClick={() => navigator.clipboard.writeText(inviteUrl)}
@@ -325,14 +349,18 @@ export function ShareDialog({
                       </button>
                     </div>
                     <p className="text-xs text-slate-600 mt-2">
-                      This link is only shown once. Create a new one if you lose it.
+                      This link is only shown once. Create a new one if you lose
+                      it.
                     </p>
                   </div>
                 )}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                <div className="rounded-xl p-4" style={{ border: "1px solid #1e2330", background: "#0b0d12" }}>
+                <div
+                  className="rounded-xl p-4"
+                  style={{ border: "1px solid #1e2330", background: "#0b0d12" }}
+                >
                   <p className="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-3">
                     Access Requests
                   </p>
@@ -344,14 +372,18 @@ export function ShareDialog({
                         <div
                           key={r.id}
                           className="flex items-center gap-2 p-2 rounded-lg"
-                          style={{ border: "1px solid #1e2330", background: "#0d0f14" }}
+                          style={{
+                            border: "1px solid #1e2330",
+                            background: "#0d0f14",
+                          }}
                         >
                           <div className="min-w-0 flex-1">
                             <p className="text-xs font-mono text-slate-300 truncate">
                               {r.user_id}
                             </p>
                             <p className="text-xs text-slate-600">
-                              {r.status} · {formatDate(r.updated_at ?? r.created_at)}
+                              {r.status} ·{" "}
+                              {formatDate(r.updated_at ?? r.created_at)}
                             </p>
                           </div>
                           {r.status === "pending" && (
@@ -378,26 +410,35 @@ export function ShareDialog({
                   )}
                 </div>
 
-                <div className="rounded-xl p-4" style={{ border: "1px solid #1e2330", background: "#0b0d12" }}>
+                <div
+                  className="rounded-xl p-4"
+                  style={{ border: "1px solid #1e2330", background: "#0b0d12" }}
+                >
                   <p className="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-3">
                     Collaborators
                   </p>
                   {collaborators.length === 0 ? (
-                    <p className="text-sm text-slate-500">No collaborators yet.</p>
+                    <p className="text-sm text-slate-500">
+                      No collaborators yet.
+                    </p>
                   ) : (
                     <div className="flex flex-col gap-2">
                       {collaborators.map((c) => (
                         <div
                           key={c.user_id}
                           className="flex items-center gap-2 p-2 rounded-lg"
-                          style={{ border: "1px solid #1e2330", background: "#0d0f14" }}
+                          style={{
+                            border: "1px solid #1e2330",
+                            background: "#0d0f14",
+                          }}
                         >
                           <div className="min-w-0 flex-1">
                             <p className="text-xs font-mono text-slate-300 truncate">
                               {c.user_id}
                             </p>
                             <p className="text-xs text-slate-600">
-                              {c.role} · {formatDate(c.updated_at ?? c.created_at)}
+                              {c.role} ·{" "}
+                              {formatDate(c.updated_at ?? c.created_at)}
                             </p>
                           </div>
                           <select
@@ -405,11 +446,16 @@ export function ShareDialog({
                             onChange={(e) =>
                               updateRole(
                                 c.user_id,
-                                e.target.value === "editor" ? "editor" : "viewer",
+                                e.target.value === "editor"
+                                  ? "editor"
+                                  : "viewer",
                               )
                             }
                             className="h-8 px-2 rounded-md text-xs text-white outline-none"
-                            style={{ background: "#161b27", border: "1px solid #2a3347" }}
+                            style={{
+                              background: "#161b27",
+                              border: "1px solid #2a3347",
+                            }}
                           >
                             <option value="viewer">viewer</option>
                             <option value="editor">editor</option>

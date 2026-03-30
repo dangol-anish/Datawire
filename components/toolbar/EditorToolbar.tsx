@@ -4,6 +4,7 @@ import React from "react";
 import Link from "next/link";
 import { useGraphStore } from "@/store/graphStore";
 import { useExecutionStore } from "@/store/executionStore";
+import { useToast } from "@/components/ui/ToastProvider";
 import {
   LuCircle,
   LuCircleCheck,
@@ -56,6 +57,7 @@ export function EditorToolbar({
   canUndo,
   canRedo,
 }: ToolbarProps) {
+  const toast = useToast();
   const { undo, redo, history, future } = useGraphStore();
   const status = useExecutionStore((s) => s.pipelineStatus);
   const selectedNodeId = useGraphStore((s) => s.selectedNodeId);
@@ -160,7 +162,7 @@ export function EditorToolbar({
                 }
                 const next = draftName.trim();
                 if (!next) {
-                  window.alert("Pipeline name cannot be empty.");
+                  toast.error("Pipeline name cannot be empty.");
                   return;
                 }
                 if (next === pipelineName) {
@@ -173,7 +175,7 @@ export function EditorToolbar({
                   await onRename(next);
                   setEditingName(false);
                 } catch (err: any) {
-                  window.alert(
+                  toast.error(
                     typeof err?.message === "string" ? err.message : "Rename failed",
                   );
                 } finally {
@@ -207,7 +209,7 @@ export function EditorToolbar({
                 await onRename(next);
                 setEditingName(false);
               } catch (err: any) {
-                window.alert(
+                toast.error(
                   typeof err?.message === "string" ? err.message : "Rename failed",
                 );
                 // Keep editing so the user can fix it.

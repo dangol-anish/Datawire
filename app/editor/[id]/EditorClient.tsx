@@ -17,6 +17,8 @@ import { MobileDrawer } from "@/components/ui/MobileDrawer";
 import { NodePalette } from "@/components/canvas/NodePalette";
 import { recordRecentPipeline } from "@/lib/homeUiState";
 import { LuRedo2, LuUndo2, LuWorkflow } from "react-icons/lu";
+import { useConfirm } from "@/components/ui/ConfirmProvider";
+import { useToast } from "@/components/ui/ToastProvider";
 
 interface Pipeline {
   id: string;
@@ -105,6 +107,8 @@ export function EditorClient({ pipeline, collabRoom }: Props) {
   const mobileNameInputRef = React.useRef<HTMLInputElement | null>(null);
   const mobileBlurCommitInFlightRef = React.useRef(false);
   const [mobileRenaming, setMobileRenaming] = React.useState(false);
+  const toast = useToast();
+  const confirm = useConfirm();
 
   const { sendCursor, broadcastGraphEvent, connectionState } = usePipelineCollaboration({
     pipelineId: pipeline.id,
@@ -333,7 +337,7 @@ export function EditorClient({ pipeline, collabRoom }: Props) {
       const msg =
         (body && typeof body.error === "string" && body.error) ||
         `Save failed (${res.status})`;
-      if (!opts?.silent) window.alert(msg);
+      if (!opts?.silent) toast.error(msg);
       setSaveState("error");
       return;
     }
@@ -486,10 +490,15 @@ export function EditorClient({ pipeline, collabRoom }: Props) {
     broadcastSnapshot("redo");
   };
 
-  const handleClear = () => {
+  const handleClear = async () => {
     const { nodes, edges } = useGraphStore.getState();
     if (nodes.length === 0 && edges.length === 0) return;
-    const ok = window.confirm("Clear the canvas? This can be undone.");
+    const ok = await confirm({
+      title: "Clear canvas?",
+      description: "This will remove all nodes and edges (you can still Undo).",
+      confirmText: "Clear",
+      dangerous: true,
+    });
     if (!ok) return;
 
     pushHistory();
@@ -551,7 +560,7 @@ export function EditorClient({ pipeline, collabRoom }: Props) {
                 e.preventDefault();
                 const next = mobileDraftName.trim();
                 if (!next) {
-                  window.alert("Pipeline name cannot be empty.");
+                  toast.error("Pipeline name cannot be empty.");
                   return;
                 }
                 if (next === pipelineName) {
@@ -564,7 +573,7 @@ export function EditorClient({ pipeline, collabRoom }: Props) {
                   await handleRename(next);
                   setMobileEditingName(false);
                 } catch (err: any) {
-                  window.alert(
+                  toast.error(
                     typeof err?.message === "string" ? err.message : "Rename failed",
                   );
                 } finally {
@@ -592,7 +601,7 @@ export function EditorClient({ pipeline, collabRoom }: Props) {
                 await handleRename(next);
                 setMobileEditingName(false);
               } catch (err: any) {
-                window.alert(
+                toast.error(
                   typeof err?.message === "string" ? err.message : "Rename failed",
                 );
                 mobileNameInputRef.current?.focus();

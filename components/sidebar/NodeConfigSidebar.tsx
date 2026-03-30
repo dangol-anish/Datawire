@@ -8,6 +8,7 @@ import type { ConfigField, DataTable } from "@/types";
 import { useExecutionStore } from "@/store/executionStore";
 import { isExecutionError } from "@/types";
 import { useFileStore } from "@/store/fileStore";
+import { useToast } from "@/components/ui/ToastProvider";
 
 function guessFormatFromName(name: string): "csv" | "json" {
   const lower = name.toLowerCase();
@@ -22,6 +23,7 @@ export function NodeConfigSidebar({
   onNodeConfigChange?: (nodeId: string, config: Record<string, unknown>) => void;
   variant?: "sidebar" | "drawer";
 }) {
+  const toast = useToast();
   const { selectedNodeId, nodes, updateNodeConfig, pushHistory } =
     useGraphStore();
   const node = nodes.find((n) => n.id === selectedNodeId);
@@ -151,7 +153,7 @@ export function NodeConfigSidebar({
 
                     const maxBytes = 5 * 1024 * 1024; // 5MB
                     if (file.size > maxBytes) {
-                      window.alert("File too large (max 5MB for now).");
+                      toast.error("File too large (max 5MB for now).");
                       e.currentTarget.value = "";
                       return;
                     }

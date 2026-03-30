@@ -8,6 +8,7 @@ import { NODE_LIST } from "@/nodes/index";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { recordRecentPipeline } from "@/lib/homeUiState";
+import { useToast } from "@/components/ui/ToastProvider";
 
 const nodeTypes: Record<string, React.ComponentType<any>> = {};
 NODE_LIST.forEach((def) => {
@@ -19,6 +20,7 @@ export function SharedViewClient({ pipeline }: { pipeline: any }) {
   const edges = pipeline.graph_json?.edges ?? [];
   const { data: session } = useSession();
   const router = useRouter();
+  const toast = useToast();
   const [requesting, setRequesting] = useState(false);
   const [requested, setRequested] = useState(false);
   const [promoted, setPromoted] = useState(false);
@@ -95,7 +97,7 @@ export function SharedViewClient({ pipeline }: { pipeline: any }) {
       if (!res.ok) throw new Error(body?.error ?? "Fork failed");
       router.push(`/editor/${body.id}`);
     } catch (e: any) {
-      window.alert(typeof e?.message === "string" ? e.message : "Fork failed");
+      toast.error(typeof e?.message === "string" ? e.message : "Fork failed");
     } finally {
       setForking(false);
     }
