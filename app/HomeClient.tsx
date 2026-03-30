@@ -721,7 +721,7 @@ export function HomeClient({
                       }}
                       className="h-8 px-3 rounded-md text-xs font-semibold text-white hover:brightness-110 transition-all flex items-center"
                       style={{
-                        background: "linear-gradient(90deg, #8387ff, #a3a6ff)",
+                        background: "linear-gradient(90deg, #a3a6ff, #8387ff)",
                       }}
                     >
                       Open editor
@@ -874,7 +874,7 @@ export function HomeClient({
                           p.role === "editor"
                             ? {
                                 background:
-                                  "linear-gradient(90deg, #8387ff, #a3a6ff)",
+                                  "linear-gradient(90deg, #a3a6ff, #8387ff)",
                               }
                             : undefined
                         }
