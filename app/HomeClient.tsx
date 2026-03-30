@@ -20,7 +20,7 @@ type SharedPipelineRow = PipelineRow & {
   user_id?: string;
 };
 
-type HomeTab = "your" | "shared" | "examples";
+type HomeTab = "your" | "shared";
 
 function formatDate(iso?: string | null) {
   if (!iso) return "";
@@ -47,17 +47,15 @@ export function HomeClient({
   const router = useRouter();
   const [creating, setCreating] = useState(false);
   const [templateBusy, setTemplateBusy] = useState<string | null>(null);
-  const hasExamples = templates.length > 0;
   const PAGE_SIZE = 8;
+  const [newOpen, setNewOpen] = useState(false);
   const [tab, setTab] = useState<HomeTab>(() => {
     if (pipelines.length > 0) return "your";
     if (sharedPipelines.length > 0) return "shared";
-    if (hasExamples) return "examples";
     return "your";
   });
   const [yourPage, setYourPage] = useState(1);
   const [sharedPage, setSharedPage] = useState(1);
-  const [examplesPage, setExamplesPage] = useState(1);
 
   const headerLabel = useMemo(() => {
     return user?.name || user?.email || "Account";
@@ -65,11 +63,9 @@ export function HomeClient({
 
   const totalYourPages = Math.max(1, Math.ceil(pipelines.length / PAGE_SIZE));
   const totalSharedPages = Math.max(1, Math.ceil(sharedPipelines.length / PAGE_SIZE));
-  const totalExamplePages = Math.max(1, Math.ceil(templates.length / PAGE_SIZE));
 
   const yourPageClamped = Math.min(Math.max(1, yourPage), totalYourPages);
   const sharedPageClamped = Math.min(Math.max(1, sharedPage), totalSharedPages);
-  const examplesPageClamped = Math.min(Math.max(1, examplesPage), totalExamplePages);
 
   const yourPipelinesPage = useMemo(() => {
     const start = (yourPageClamped - 1) * PAGE_SIZE;
@@ -81,15 +77,10 @@ export function HomeClient({
     return sharedPipelines.slice(start, start + PAGE_SIZE);
   }, [sharedPipelines, sharedPageClamped]);
 
-  const templatesPage = useMemo(() => {
-    const start = (examplesPageClamped - 1) * PAGE_SIZE;
-    return templates.slice(start, start + PAGE_SIZE);
-  }, [templates, examplesPageClamped]);
-
   useEffect(() => {
     try {
       const stored = window.localStorage.getItem("dw_home_tab");
-      if (stored === "your" || stored === "shared" || stored === "examples") {
+      if (stored === "your" || stored === "shared") {
         setTab(stored);
       }
     } catch {
@@ -114,19 +105,6 @@ export function HomeClient({
     if (sharedPage !== sharedPageClamped) setSharedPage(sharedPageClamped);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sharedPageClamped]);
-
-  useEffect(() => {
-    if (examplesPage !== examplesPageClamped) setExamplesPage(examplesPageClamped);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [examplesPageClamped]);
-
-  useEffect(() => {
-    if (tab !== "examples") return;
-    if (hasExamples) return;
-    if (pipelines.length > 0) setTab("your");
-    else if (sharedPipelines.length > 0) setTab("shared");
-    else setTab("your");
-  }, [hasExamples, pipelines.length, sharedPipelines.length, tab]);
 
   const createPipeline = async () => {
     if (creating) return;
@@ -157,6 +135,15 @@ export function HomeClient({
       setTemplateBusy(null);
     }
   };
+
+  useEffect(() => {
+    if (!newOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setNewOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [newOpen]);
 
   return (
     <main className="min-h-screen bg-canvas text-white">
@@ -200,7 +187,7 @@ export function HomeClient({
           <div className="flex-1" />
 
           <button
-            onClick={createPipeline}
+            onClick={() => setNewOpen(true)}
             className={clsx(
               "h-9 px-4 rounded-lg text-sm font-semibold transition-colors",
               creating
@@ -260,99 +247,8 @@ export function HomeClient({
                 {sharedPipelines.length}
               </span>
             </button>
-            <button
-              type="button"
-              onClick={() => setTab("examples")}
-              disabled={!hasExamples}
-              className={clsx(
-                "px-3 h-9 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
-                tab === "examples"
-                  ? "bg-white/10 text-white"
-                  : "text-slate-300 hover:text-white hover:bg-white/5",
-              )}
-              title={!hasExamples ? "No example pipelines available" : undefined}
-            >
-              Examples{" "}
-              <span className="ml-1 text-xs text-slate-400">
-                {templates.length}
-              </span>
-            </button>
           </div>
         </div>
-
-        {tab === "examples" && hasExamples && (
-          <section className="mb-8">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-semibold text-slate-200">
-                Example pipelines
-              </h2>
-              <p className="text-xs text-slate-500">
-                Start from a working graph and tweak it.
-              </p>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {templatesPage.map((t) => (
-                <div
-                  key={t.id}
-                  className="rounded-2xl border border-border bg-surface p-5 flex flex-col gap-3"
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-white truncate">
-                        {t.name}
-                      </p>
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        {t.description}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center mt-1 justify-between gap-2">
-                    <span className="text-[11px] text-slate-600">
-                      {t.graph_json.nodes.length} nodes
-                    </span>
-                    <button
-                      onClick={() => createFromTemplate(t.id)}
-                      disabled={templateBusy !== null}
-                      className={clsx(
-                        "h-8 px-3 rounded-md text-xs font-semibold transition-colors border",
-                        templateBusy === t.id
-                          ? "bg-emerald-600/60 border-emerald-500/40 text-white/90 cursor-not-allowed"
-                          : "bg-emerald-600 border-emerald-500/40 hover:bg-emerald-500 text-white",
-                      )}
-                    >
-                      {templateBusy === t.id ? "Creating…" : "Use template"}
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-            {totalExamplePages > 1 && (
-              <div className="flex items-center justify-center gap-3 mt-6">
-                <button
-                  type="button"
-                  onClick={() => setExamplesPage((p) => Math.max(1, p - 1))}
-                  disabled={examplesPageClamped <= 1}
-                  className="h-9 px-3 rounded-lg text-sm font-semibold text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  Previous
-                </button>
-                <div className="text-sm text-slate-400">
-                  Page {examplesPageClamped} of {totalExamplePages}
-                </div>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setExamplesPage((p) => Math.min(totalExamplePages, p + 1))
-                  }
-                  disabled={examplesPageClamped >= totalExamplePages}
-                  className="h-9 px-3 rounded-lg text-sm font-semibold text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  Next
-                </button>
-              </div>
-            )}
-          </section>
-        )}
 
         {tab === "your" &&
           (pipelines.length === 0 ? (
@@ -414,9 +310,9 @@ export function HomeClient({
                     >
                       Open editor
                     </Link>
-                  </div>
-                </div>
-              ))}
+              </div>
+            </div>
+          ))}
             </div>
           ))}
 
@@ -527,6 +423,116 @@ export function HomeClient({
             >
               Next
             </button>
+          </div>
+        )}
+
+        {newOpen && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center px-4"
+            style={{ background: "rgba(0,0,0,0.55)" }}
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget) setNewOpen(false);
+            }}
+          >
+            <div
+              className="w-full max-w-2xl rounded-2xl border border-border bg-surface overflow-hidden"
+              style={{ boxShadow: "0 24px 80px rgba(0,0,0,0.6)" }}
+            >
+              <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+                <div className="min-w-0">
+                  <h3 className="text-base font-semibold text-white">
+                    New pipeline
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Start from scratch or use an example template.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="h-9 w-9 rounded-lg text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 transition-colors"
+                  onClick={() => setNewOpen(false)}
+                  title="Close"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="p-5">
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setNewOpen(false);
+                      await createPipeline();
+                    }}
+                    disabled={creating}
+                    className={clsx(
+                      "h-10 px-4 rounded-lg text-sm font-semibold transition-colors",
+                      creating
+                        ? "bg-indigo-700/70 text-white/90 cursor-not-allowed"
+                        : "bg-accent hover:bg-indigo-500 text-white",
+                    )}
+                  >
+                    {creating ? "Creating…" : "Blank pipeline"}
+                  </button>
+                  <div className="text-xs text-slate-500">
+                    Creates an empty canvas.
+                  </div>
+                </div>
+
+                {templates.length > 0 && (
+                  <div className="mt-6">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-sm font-semibold text-slate-200">
+                        Example templates
+                      </h4>
+                      <span className="text-xs text-slate-500">
+                        {templates.length} available
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {templates.map((t) => (
+                        <div
+                          key={t.id}
+                          className="rounded-2xl border border-border bg-[#0b0d12] p-4 flex flex-col gap-3"
+                        >
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-white truncate">
+                              {t.name}
+                            </p>
+                            <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">
+                              {t.description}
+                            </p>
+                          </div>
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-[11px] text-slate-600">
+                              {t.graph_json.nodes.length} nodes
+                            </span>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                setNewOpen(false);
+                                await createFromTemplate(t.id);
+                              }}
+                              disabled={templateBusy !== null}
+                              className={clsx(
+                                "h-8 px-3 rounded-md text-xs font-semibold transition-colors border",
+                                templateBusy === t.id
+                                  ? "bg-emerald-600/60 border-emerald-500/40 text-white/90 cursor-not-allowed"
+                                  : "bg-emerald-600 border-emerald-500/40 hover:bg-emerald-500 text-white",
+                              )}
+                            >
+                              {templateBusy === t.id ? "Creating…" : "Use template"}
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         )}
       </div>
