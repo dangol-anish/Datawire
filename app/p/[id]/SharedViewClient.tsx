@@ -7,6 +7,7 @@ import { PipelineNodeCard } from "@/components/canvas/PipelineNodeCard";
 import { NODE_LIST } from "@/nodes/index";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { recordRecentPipeline } from "@/lib/homeUiState";
 
 const nodeTypes: Record<string, React.ComponentType<any>> = {};
 NODE_LIST.forEach((def) => {
@@ -22,6 +23,18 @@ export function SharedViewClient({ pipeline }: { pipeline: any }) {
   const [requested, setRequested] = useState(false);
   const [promoted, setPromoted] = useState(false);
   const [forking, setForking] = useState(false);
+
+  useEffect(() => {
+    try {
+      recordRecentPipeline({
+        id: pipeline.id,
+        name: pipeline.name,
+        href: `/p/${pipeline.id}`,
+      });
+    } catch {
+      // ignore
+    }
+  }, [pipeline.id, pipeline.name]);
 
   useEffect(() => {
     if (!session?.user?.id) return;

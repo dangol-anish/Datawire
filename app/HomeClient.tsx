@@ -6,6 +6,12 @@ import { useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
 import clsx from "clsx";
 import type { PipelineTemplate } from "@/lib/pipelineTemplates";
+import {
+  readPinnedPipelineIds,
+  readRecentPipelines,
+  recordRecentPipeline,
+  setPinnedPipelineIds,
+} from "@/lib/homeUiState";
 
 type PipelineRow = {
   id: string;
@@ -21,6 +27,7 @@ type SharedPipelineRow = PipelineRow & {
 };
 
 type HomeTab = "your" | "shared";
+type SortMode = "updated" | "name";
 
 function formatDate(iso?: string | null) {
   if (!iso) return "";
@@ -49,6 +56,12 @@ export function HomeClient({
   const [templateBusy, setTemplateBusy] = useState<string | null>(null);
   const PAGE_SIZE = 8;
   const [newOpen, setNewOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [sortMode, setSortMode] = useState<SortMode>("updated");
+  const [pinnedIds, setPinnedIds] = useState<string[]>([]);
+  const [recent, setRecent] = useState<
+    Array<{ id: string; name: string; href: string; accessedAt: number }>
+  >([]);
   const [tab, setTab] = useState<HomeTab>(() => {
     if (pipelines.length > 0) return "your";
     if (sharedPipelines.length > 0) return "shared";
@@ -61,10 +74,76 @@ export function HomeClient({
     return user?.name || user?.email || "Account";
   }, [user?.name, user?.email]);
 
-  const totalYourPages = Math.max(1, Math.ceil(pipelines.length / PAGE_SIZE));
+  const pinnedSet = useMemo(() => new Set(pinnedIds), [pinnedIds]);
+
+  const togglePinned = (pipelineId: string) => {
+    setPinnedIds((prev) => {
+      const next = prev.includes(pipelineId)
+        ? prev.filter((id) => id !== pipelineId)
+        : [pipelineId, ...prev];
+      setPinnedPipelineIds(next);
+      return next;
+    });
+  };
+
+  const getUpdatedIso = (row: { updated_at?: string; created_at: string }) =>
+    row.updated_at ?? row.created_at;
+
+  const getUpdatedMs = (iso?: string) => {
+    if (!iso) return 0;
+    const d = new Date(iso);
+    const t = d.getTime();
+    return Number.isNaN(t) ? 0 : t;
+  };
+
+  const cleanedQuery = query.trim().toLowerCase();
+
+  const preparedOwned = useMemo(() => {
+    const filtered = cleanedQuery
+      ? pipelines.filter((p) => p.name.toLowerCase().includes(cleanedQuery))
+      : pipelines.slice();
+
+    filtered.sort((a, b) => {
+      const ap = pinnedSet.has(a.id) ? 1 : 0;
+      const bp = pinnedSet.has(b.id) ? 1 : 0;
+      if (ap !== bp) return bp - ap;
+
+      if (sortMode === "name") return a.name.localeCompare(b.name);
+
+      const at = getUpdatedMs(getUpdatedIso(a));
+      const bt = getUpdatedMs(getUpdatedIso(b));
+      if (at !== bt) return bt - at;
+      return a.name.localeCompare(b.name);
+    });
+
+    return filtered;
+  }, [cleanedQuery, pinnedSet, pipelines, sortMode]);
+
+  const preparedShared = useMemo(() => {
+    const filtered = cleanedQuery
+      ? sharedPipelines.filter((p) => p.name.toLowerCase().includes(cleanedQuery))
+      : sharedPipelines.slice();
+
+    filtered.sort((a, b) => {
+      const ap = pinnedSet.has(a.id) ? 1 : 0;
+      const bp = pinnedSet.has(b.id) ? 1 : 0;
+      if (ap !== bp) return bp - ap;
+
+      if (sortMode === "name") return a.name.localeCompare(b.name);
+
+      const at = getUpdatedMs(getUpdatedIso(a));
+      const bt = getUpdatedMs(getUpdatedIso(b));
+      if (at !== bt) return bt - at;
+      return a.name.localeCompare(b.name);
+    });
+
+    return filtered;
+  }, [cleanedQuery, pinnedSet, sharedPipelines, sortMode]);
+
+  const totalYourPages = Math.max(1, Math.ceil(preparedOwned.length / PAGE_SIZE));
   const totalSharedPages = Math.max(
     1,
-    Math.ceil(sharedPipelines.length / PAGE_SIZE),
+    Math.ceil(preparedShared.length / PAGE_SIZE),
   );
 
   const yourPageClamped = Math.min(Math.max(1, yourPage), totalYourPages);
@@ -72,13 +151,34 @@ export function HomeClient({
 
   const yourPipelinesPage = useMemo(() => {
     const start = (yourPageClamped - 1) * PAGE_SIZE;
-    return pipelines.slice(start, start + PAGE_SIZE);
-  }, [pipelines, yourPageClamped]);
+    return preparedOwned.slice(start, start + PAGE_SIZE);
+  }, [preparedOwned, yourPageClamped]);
 
   const sharedPipelinesPage = useMemo(() => {
     const start = (sharedPageClamped - 1) * PAGE_SIZE;
-    return sharedPipelines.slice(start, start + PAGE_SIZE);
-  }, [sharedPipelines, sharedPageClamped]);
+    return preparedShared.slice(start, start + PAGE_SIZE);
+  }, [preparedShared, sharedPageClamped]);
+
+  const stats = useMemo(() => {
+    const publicCount = pipelines.filter((p) => p.is_public).length;
+    const all = [...pipelines, ...sharedPipelines];
+    let newestIso: string | null = null;
+    let newestMs = 0;
+    for (const row of all) {
+      const iso = getUpdatedIso(row);
+      const t = getUpdatedMs(iso);
+      if (t > newestMs) {
+        newestMs = t;
+        newestIso = iso;
+      }
+    }
+    return {
+      yourCount: pipelines.length,
+      sharedCount: sharedPipelines.length,
+      publicCount,
+      newestIso,
+    };
+  }, [pipelines, sharedPipelines]);
 
   useEffect(() => {
     try {
@@ -89,6 +189,22 @@ export function HomeClient({
     } catch {
       // ignore
     }
+  }, []);
+
+  useEffect(() => {
+    setPinnedIds(readPinnedPipelineIds());
+    setRecent(readRecentPipelines());
+
+    const refresh = () => setRecent(readRecentPipelines());
+    window.addEventListener("focus", refresh);
+    const onVis = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", onVis);
+    };
   }, []);
 
   useEffect(() => {
@@ -108,6 +224,12 @@ export function HomeClient({
     if (sharedPage !== sharedPageClamped) setSharedPage(sharedPageClamped);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sharedPageClamped]);
+
+  useEffect(() => {
+    // When the query or sort changes, snap back to the first page.
+    setYourPage(1);
+    setSharedPage(1);
+  }, [cleanedQuery, sortMode]);
 
   const createPipeline = async () => {
     if (creating) return;
@@ -224,6 +346,82 @@ export function HomeClient({
       </div>
 
       <div className="max-w-5xl mx-auto px-6 py-8">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+          <div className="rounded-2xl border border-border bg-surface p-4">
+            <div className="text-xs text-slate-500">Your pipelines</div>
+            <div className="text-xl font-semibold text-white mt-1">
+              {stats.yourCount}
+            </div>
+          </div>
+          <div className="rounded-2xl border border-border bg-surface p-4">
+            <div className="text-xs text-slate-500">Shared with you</div>
+            <div className="text-xl font-semibold text-white mt-1">
+              {stats.sharedCount}
+            </div>
+          </div>
+          <div className="rounded-2xl border border-border bg-surface p-4">
+            <div className="text-xs text-slate-500">Public</div>
+            <div className="text-xl font-semibold text-white mt-1">
+              {stats.publicCount}
+            </div>
+          </div>
+          <div className="rounded-2xl border border-border bg-surface p-4">
+            <div className="text-xs text-slate-500">Last updated</div>
+            <div className="text-sm font-semibold text-white mt-1 truncate">
+              {stats.newestIso ? formatDate(stats.newestIso) : "—"}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
+          <div className="flex-1">
+            <div className="relative">
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search pipelines…"
+                className="w-full h-11 pl-10 pr-10 rounded-xl bg-surface border border-border text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
+              />
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <path
+                    d="M21 21l-4.3-4.3m1.8-5.2a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </div>
+              {query.trim().length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setQuery("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition-colors"
+                  title="Clear"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-500">Sort</span>
+            <select
+              value={sortMode}
+              onChange={(e) => setSortMode(e.target.value as SortMode)}
+              className="h-11 px-3 rounded-xl bg-surface border border-border text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
+            >
+              <option value="updated">Last updated</option>
+              <option value="name">Name</option>
+            </select>
+          </div>
+        </div>
+
         <div className="mb-6 flex justify-center">
           <div
             className="inline-flex items-center gap-1 p-1 rounded-xl"
@@ -265,12 +463,74 @@ export function HomeClient({
           </div>
         </div>
 
+        {recent.length > 0 && (
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-slate-200">
+                Recently opened
+              </h3>
+              <button
+                type="button"
+                onClick={() => {
+                  try {
+                    window.localStorage.removeItem("dw_recent_pipelines");
+                  } catch {
+                    // ignore
+                  }
+                  setRecent([]);
+                }}
+                className="text-xs text-slate-500 hover:text-slate-300"
+              >
+                Clear
+              </button>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {recent
+                .slice()
+                .sort((a, b) => b.accessedAt - a.accessedAt)
+                .map((r) => (
+                  <Link
+                    key={r.id}
+                    href={r.href}
+                    onClick={() => {
+                      const next = recordRecentPipeline({
+                        id: r.id,
+                        name: r.name,
+                        href: r.href,
+                      });
+                      setRecent(next);
+                    }}
+                    className="rounded-2xl border border-border bg-surface p-4 flex items-center gap-3 hover:bg-white/5 transition-colors"
+                  >
+                    <div
+                      className="w-2 h-2 rounded-full"
+                      style={{ background: "#6366f1" }}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-semibold text-white truncate">
+                        {r.name}
+                      </div>
+                      <div className="text-xs text-slate-500 truncate">
+                        {r.href}
+                      </div>
+                    </div>
+                    <span className="text-xs text-slate-400">Open</span>
+                  </Link>
+                ))}
+            </div>
+          </div>
+        )}
+
         {tab === "your" &&
-          (pipelines.length === 0 ? (
+          (preparedOwned.length === 0 ? (
             <div className="rounded-2xl border border-border bg-surface p-10">
-              <h2 className="text-lg font-semibold">No pipelines yet</h2>
+              <h2 className="text-lg font-semibold">
+                {query.trim().length > 0 ? "No matches" : "No pipelines yet"}
+              </h2>
               <p className="text-sm text-slate-400 mt-1">
-                Create your first pipeline, then open it in the editor.
+                {query.trim().length > 0
+                  ? "Try a different search term."
+                  : "Create your first pipeline, then open it in the editor."}
               </p>
               <div className="mt-6">
                 <button
@@ -281,6 +541,44 @@ export function HomeClient({
                   {creating ? "Creating…" : "Create pipeline"}
                 </button>
               </div>
+
+              {query.trim().length === 0 && templates.length > 0 && (
+                <div className="mt-8">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-semibold text-slate-200">
+                      Start from a template
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={() => setNewOpen(true)}
+                      className="text-xs text-slate-500 hover:text-slate-300"
+                    >
+                      Browse all
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {templates.slice(0, 3).map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => void createFromTemplate(t.id)}
+                        disabled={templateBusy !== null}
+                        className="text-left rounded-2xl border border-border bg-[#0b0d12] p-4 hover:bg-white/5 transition-colors disabled:opacity-60"
+                      >
+                        <div className="text-sm font-semibold text-white truncate">
+                          {t.name}
+                        </div>
+                        <div className="text-xs text-slate-500 mt-1 line-clamp-2">
+                          {t.description}
+                        </div>
+                        <div className="mt-3 text-[11px] text-slate-600">
+                          {t.graph_json.nodes.length} nodes
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -298,21 +596,58 @@ export function HomeClient({
                         Updated {formatDate(p.updated_at ?? p.created_at)}
                       </p>
                     </div>
-                    <span
-                      className="text-xs font-medium px-2 py-1 rounded-md flex-shrink-0 text-slate-400"
-                      title={
-                        p.is_public
-                          ? "Anyone with the link can view"
-                          : "Only invited collaborators can view"
-                      }
-                    >
-                      {p.is_public ? "Public" : "Private"}
-                    </span>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => togglePinned(p.id)}
+                        className="h-8 w-8 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 transition-colors"
+                        title={
+                          pinnedSet.has(p.id)
+                            ? "Unpin pipeline"
+                            : "Pin pipeline"
+                        }
+                        aria-label={
+                          pinnedSet.has(p.id) ? "Unpin pipeline" : "Pin pipeline"
+                        }
+                      >
+                        <svg
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill={pinnedSet.has(p.id) ? "currentColor" : "none"}
+                          stroke="currentColor"
+                          strokeWidth="2"
+                        >
+                          <path
+                            d="M12 17.5 6.2 20.7l1.1-6.6L2.5 9.8l6.7-1 2.8-6.1 2.8 6.1 6.7 1-4.8 4.3 1.1 6.6z"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      </button>
+                      <span
+                        className="text-xs font-medium px-2 py-1 rounded-md text-slate-400 border border-white/10"
+                        title={
+                          p.is_public
+                            ? "Anyone with the link can view"
+                            : "Only invited collaborators can view"
+                        }
+                      >
+                        {p.is_public ? "Public" : "Private"}
+                      </span>
+                    </div>
                   </div>
 
                   <div className="flex items-center justify-end gap-2 mt-2 ">
                     <Link
                       href={`/p/${p.id}`}
+                      onClick={() => {
+                        const next = recordRecentPipeline({
+                          id: p.id,
+                          name: p.name,
+                          href: `/p/${p.id}`,
+                        });
+                        setRecent(next);
+                      }}
                       className="h-8 px-3 rounded-md text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 transition-colors flex items-center"
                       title="Open share view (requires pipeline to be public)"
                     >
@@ -321,6 +656,14 @@ export function HomeClient({
 
                     <Link
                       href={`/editor/${p.id}`}
+                      onClick={() => {
+                        const next = recordRecentPipeline({
+                          id: p.id,
+                          name: p.name,
+                          href: `/editor/${p.id}`,
+                        });
+                        setRecent(next);
+                      }}
                       className="h-8 px-3 rounded-md text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 transition-colors flex items-center"
                     >
                       Open editor
@@ -331,7 +674,7 @@ export function HomeClient({
             </div>
           ))}
 
-        {tab === "your" && pipelines.length > 0 && totalYourPages > 1 && (
+        {tab === "your" && preparedOwned.length > 0 && totalYourPages > 1 && (
           <div className="flex items-center justify-center gap-3 mt-6">
             <button
               type="button"
@@ -358,11 +701,15 @@ export function HomeClient({
         )}
 
         {tab === "shared" &&
-          (sharedPipelines.length === 0 ? (
+          (preparedShared.length === 0 ? (
             <div className="rounded-2xl border border-border bg-surface p-10">
-              <h2 className="text-lg font-semibold">No shared pipelines</h2>
+              <h2 className="text-lg font-semibold">
+                {query.trim().length > 0 ? "No matches" : "No shared pipelines"}
+              </h2>
               <p className="text-sm text-slate-400 mt-1">
-                Pipelines others share with you will show up here.
+                {query.trim().length > 0
+                  ? "Try a different search term."
+                  : "Pipelines others share with you will show up here."}
               </p>
             </div>
           ) : (
@@ -378,12 +725,40 @@ export function HomeClient({
                         <p className="text-sm font-semibold text-white truncate">
                           {p.name}
                         </p>
-                        <p className="text-xs text-slate-500 mt-0.5">
-                          Updated {formatDate(p.updated_at ?? p.created_at)}
-                        </p>
-                      </div>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Updated {formatDate(p.updated_at ?? p.created_at)}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => togglePinned(p.id)}
+                        className="h-8 w-8 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 transition-colors"
+                        title={
+                          pinnedSet.has(p.id)
+                            ? "Unpin pipeline"
+                            : "Pin pipeline"
+                        }
+                        aria-label={
+                          pinnedSet.has(p.id) ? "Unpin pipeline" : "Pin pipeline"
+                        }
+                      >
+                        <svg
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill={pinnedSet.has(p.id) ? "currentColor" : "none"}
+                          stroke="currentColor"
+                          strokeWidth="2"
+                        >
+                          <path
+                            d="M12 17.5 6.2 20.7l1.1-6.6L2.5 9.8l6.7-1 2.8-6.1 2.8 6.1 6.7 1-4.8 4.3 1.1 6.6z"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      </button>
                       <span
-                        className="text-xs font-medium px-2 py-1 rounded-md flex-shrink-0 text-slate-400"
+                        className="text-xs font-medium px-2 py-1 rounded-md text-slate-400 border border-white/10"
                         title={
                           p.role === "editor"
                             ? "You can edit this pipeline"
@@ -393,32 +768,51 @@ export function HomeClient({
                         {p.role === "editor" ? "Editor" : "Viewer"}
                       </span>
                     </div>
-
-                    <div className="flex items-center justify-end gap-2 mt-2">
-                      <Link
-                        href={`/p/${p.id}`}
-                        className="h-8 px-3 rounded-md text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 transition-colors flex items-center"
-                      >
-                        Shared view
-                      </Link>
-
-                      <Link
-                        href={
-                          p.role === "editor" ? `/editor/${p.id}` : `/p/${p.id}`
-                        }
-                        className="h-8 px-3 rounded-md text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 transition-colors flex items-center"
-                      >
-                        {p.role === "editor" ? "Open editor" : "Open"}
-                      </Link>
-                    </div>
                   </div>
-                ))}
-              </div>
-            </section>
+
+                  <div className="flex items-center justify-end gap-2 mt-2">
+                    <Link
+                      href={`/p/${p.id}`}
+                      onClick={() => {
+                        const next = recordRecentPipeline({
+                          id: p.id,
+                          name: p.name,
+                          href: `/p/${p.id}`,
+                        });
+                        setRecent(next);
+                      }}
+                      className="h-8 px-3 rounded-md text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 transition-colors flex items-center"
+                    >
+                      Shared view
+                    </Link>
+
+                    <Link
+                      href={
+                        p.role === "editor" ? `/editor/${p.id}` : `/p/${p.id}`
+                      }
+                      onClick={() => {
+                        const href =
+                          p.role === "editor" ? `/editor/${p.id}` : `/p/${p.id}`;
+                        const next = recordRecentPipeline({
+                          id: p.id,
+                          name: p.name,
+                          href,
+                        });
+                        setRecent(next);
+                      }}
+                      className="h-8 px-3 rounded-md text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 transition-colors flex items-center"
+                    >
+                      {p.role === "editor" ? "Open editor" : "Open"}
+                    </Link>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
           ))}
 
         {tab === "shared" &&
-          sharedPipelines.length > 0 &&
+          preparedShared.length > 0 &&
           totalSharedPages > 1 && (
             <div className="flex items-center justify-center gap-3 mt-6">
               <button

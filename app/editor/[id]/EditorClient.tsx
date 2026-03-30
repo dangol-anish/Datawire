@@ -15,6 +15,7 @@ import { ShareDialog } from "@/components/share/ShareDialog";
 import { useFileStore } from "@/store/fileStore";
 import { MobileDrawer } from "@/components/ui/MobileDrawer";
 import { NodePalette } from "@/components/canvas/NodePalette";
+import { recordRecentPipeline } from "@/lib/homeUiState";
 
 interface Pipeline {
   id: string;
@@ -152,6 +153,18 @@ export function EditorClient({ pipeline, collabRoom }: Props) {
   useEffect(() => {
     document.title = pipelineName ? `${pipelineName} — Datawire` : "Datawire";
   }, [pipelineName]);
+
+  useEffect(() => {
+    try {
+      recordRecentPipeline({
+        id: pipeline.id,
+        name: pipelineName,
+        href: `/editor/${pipeline.id}`,
+      });
+    } catch {
+      // ignore
+    }
+  }, [pipeline.id, pipelineName]);
 
   useEffect(() => {
     if (!mobileEditingName) return;
