@@ -8,6 +8,8 @@ interface ToolbarProps {
   pipelineName: string;
   onRun: () => void;
   onSave: () => void;
+  onRename?: (nextName: string) => Promise<void>;
+  canRename?: boolean;
   onDeleteSelected: () => void;
   onClear: () => void;
   onShare?: () => void;
@@ -25,6 +27,8 @@ export function EditorToolbar({
   pipelineName,
   onRun,
   onSave,
+  onRename,
+  canRename,
   onDeleteSelected,
   onClear,
   onShare,
@@ -40,6 +44,22 @@ export function EditorToolbar({
   const { undo, redo, history, future } = useGraphStore();
   const status = useExecutionStore((s) => s.pipelineStatus);
   const selectedNodeId = useGraphStore((s) => s.selectedNodeId);
+
+  const [editingName, setEditingName] = React.useState(false);
+  const [draftName, setDraftName] = React.useState(pipelineName);
+  const [renaming, setRenaming] = React.useState(false);
+  const nameInputRef = React.useRef<HTMLInputElement | null>(null);
+  const blurCommitInFlightRef = React.useRef(false);
+
+  React.useEffect(() => {
+    if (!editingName) setDraftName(pipelineName);
+  }, [pipelineName, editingName]);
+
+  React.useEffect(() => {
+    if (!editingName) return;
+    nameInputRef.current?.focus();
+    nameInputRef.current?.select();
+  }, [editingName]);
 
   const isRunning = status === "running";
   const saveText =
@@ -98,9 +118,100 @@ export function EditorToolbar({
             />
           </svg>
         </div>
-        <span className="text-sm font-semibold text-slate-200">
-          {pipelineName}
-        </span>
+        {!editingName && (
+          <span
+            className={`text-sm font-semibold text-slate-200 ${canRename && onRename ? "cursor-text" : ""}`}
+            onDoubleClick={() => {
+              if (!canRename || !onRename) return;
+              setEditingName(true);
+            }}
+            title={canRename && onRename ? "Double-click to rename" : undefined}
+          >
+            {pipelineName}
+          </span>
+        )}
+        {editingName && (
+          <input
+            ref={nameInputRef}
+            value={draftName}
+            disabled={renaming}
+            onChange={(e) => setDraftName(e.target.value)}
+            onKeyDown={async (e) => {
+              if (e.key === "Escape") {
+                e.preventDefault();
+                setDraftName(pipelineName);
+                setEditingName(false);
+                return;
+              }
+
+              if (e.key === "Enter") {
+                e.preventDefault();
+                if (!onRename) {
+                  setEditingName(false);
+                  return;
+                }
+                const next = draftName.trim();
+                if (!next) {
+                  window.alert("Pipeline name cannot be empty.");
+                  return;
+                }
+                if (next === pipelineName) {
+                  setEditingName(false);
+                  return;
+                }
+                setRenaming(true);
+                try {
+                  blurCommitInFlightRef.current = true;
+                  await onRename(next);
+                  setEditingName(false);
+                } catch (err: any) {
+                  window.alert(
+                    typeof err?.message === "string" ? err.message : "Rename failed",
+                  );
+                } finally {
+                  setRenaming(false);
+                  window.setTimeout(() => {
+                    blurCommitInFlightRef.current = false;
+                  }, 0);
+                }
+              }
+            }}
+            onBlur={async () => {
+              if (!onRename) {
+                setEditingName(false);
+                return;
+              }
+              if (blurCommitInFlightRef.current) return;
+
+              const next = draftName.trim();
+              if (!next) {
+                setDraftName(pipelineName);
+                setEditingName(false);
+                return;
+              }
+              if (next === pipelineName) {
+                setEditingName(false);
+                return;
+              }
+
+              setRenaming(true);
+              try {
+                await onRename(next);
+                setEditingName(false);
+              } catch (err: any) {
+                window.alert(
+                  typeof err?.message === "string" ? err.message : "Rename failed",
+                );
+                // Keep editing so the user can fix it.
+                nameInputRef.current?.focus();
+                nameInputRef.current?.select();
+              } finally {
+                setRenaming(false);
+              }
+            }}
+            className="h-8 px-2 rounded-md text-sm font-semibold text-slate-200 bg-white/5 border border-white/10 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 min-w-[240px]"
+          />
+        )}
       </div>
 
       {/* Spacer */}

@@ -98,6 +98,11 @@ export function EditorClient({ pipeline, collabRoom }: Props) {
   >("saved");
   const lastSavedGraphRef = useRef<string>("");
   const pendingAutoSaveRef = useRef<number | null>(null);
+  const [mobileEditingName, setMobileEditingName] = React.useState(false);
+  const [mobileDraftName, setMobileDraftName] = React.useState(pipeline.name);
+  const mobileNameInputRef = React.useRef<HTMLInputElement | null>(null);
+  const mobileBlurCommitInFlightRef = React.useRef(false);
+  const [mobileRenaming, setMobileRenaming] = React.useState(false);
 
   const { sendCursor, broadcastGraphEvent, connectionState } = usePipelineCollaboration({
     pipelineId: pipeline.id,
@@ -125,6 +130,8 @@ export function EditorClient({ pipeline, collabRoom }: Props) {
   useEffect(() => {
     setPipelineName(pipeline.name);
     setIsPublic(pipeline.is_public);
+    setMobileDraftName(pipeline.name);
+    setMobileEditingName(false);
     const initialGraph = stableGraphSnapshot(
       pipeline.graph_json?.nodes ?? [],
       pipeline.graph_json?.edges ?? [],
@@ -141,6 +148,16 @@ export function EditorClient({ pipeline, collabRoom }: Props) {
     }
     setCollabEnabled(true);
   }, [pipeline.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    document.title = pipelineName ? `${pipelineName} — Datawire` : "Datawire";
+  }, [pipelineName]);
+
+  useEffect(() => {
+    if (!mobileEditingName) return;
+    mobileNameInputRef.current?.focus();
+    mobileNameInputRef.current?.select();
+  }, [mobileEditingName]);
 
   // Owner-only: poll for pending access requests so the owner sees new requests without opening Share.
   useEffect(() => {
@@ -309,6 +326,28 @@ export function EditorClient({ pipeline, collabRoom }: Props) {
     const latest = useGraphStore.getState();
     const current = stableGraphSnapshot(latest.nodes, latest.edges);
     setSaveState(current === snapshot ? "saved" : "dirty");
+  };
+
+  const handleRename = async (nextName: string) => {
+    const name = nextName.trim();
+    if (!name) throw new Error("Pipeline name cannot be empty.");
+
+    const res = await fetch(`/api/pipelines/${pipeline.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    });
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      const msg =
+        (body && typeof body.error === "string" && body.error) ||
+        `Rename failed (${res.status})`;
+      throw new Error(msg);
+    }
+
+    setPipelineName(name);
+    router.refresh();
   };
 
   // Track dirty state
@@ -483,9 +522,89 @@ export function EditorClient({ pipeline, collabRoom }: Props) {
             />
           </svg>
         </div>
-        <span className="text-sm font-semibold text-slate-200 truncate">
-          {pipelineName}
-        </span>
+        {!mobileEditingName && (
+          <span
+            className={`text-sm font-semibold text-slate-200 truncate ${isOwner ? "cursor-text" : ""}`}
+            onDoubleClick={() => {
+              if (!isOwner) return;
+              setMobileDraftName(pipelineName);
+              setMobileEditingName(true);
+            }}
+            title={isOwner ? "Double-click to rename" : undefined}
+          >
+            {pipelineName}
+          </span>
+        )}
+        {mobileEditingName && (
+          <input
+            ref={mobileNameInputRef}
+            value={mobileDraftName}
+            disabled={mobileRenaming}
+            onChange={(e) => setMobileDraftName(e.target.value)}
+            onKeyDown={async (e) => {
+              if (e.key === "Escape") {
+                e.preventDefault();
+                setMobileDraftName(pipelineName);
+                setMobileEditingName(false);
+                return;
+              }
+              if (e.key === "Enter") {
+                e.preventDefault();
+                const next = mobileDraftName.trim();
+                if (!next) {
+                  window.alert("Pipeline name cannot be empty.");
+                  return;
+                }
+                if (next === pipelineName) {
+                  setMobileEditingName(false);
+                  return;
+                }
+                setMobileRenaming(true);
+                try {
+                  mobileBlurCommitInFlightRef.current = true;
+                  await handleRename(next);
+                  setMobileEditingName(false);
+                } catch (err: any) {
+                  window.alert(
+                    typeof err?.message === "string" ? err.message : "Rename failed",
+                  );
+                } finally {
+                  setMobileRenaming(false);
+                  window.setTimeout(() => {
+                    mobileBlurCommitInFlightRef.current = false;
+                  }, 0);
+                }
+              }
+            }}
+            onBlur={async () => {
+              if (mobileBlurCommitInFlightRef.current) return;
+              const next = mobileDraftName.trim();
+              if (!next) {
+                setMobileDraftName(pipelineName);
+                setMobileEditingName(false);
+                return;
+              }
+              if (next === pipelineName) {
+                setMobileEditingName(false);
+                return;
+              }
+              setMobileRenaming(true);
+              try {
+                await handleRename(next);
+                setMobileEditingName(false);
+              } catch (err: any) {
+                window.alert(
+                  typeof err?.message === "string" ? err.message : "Rename failed",
+                );
+                mobileNameInputRef.current?.focus();
+                mobileNameInputRef.current?.select();
+              } finally {
+                setMobileRenaming(false);
+              }
+            }}
+            className="h-8 px-2 rounded-md text-sm font-semibold text-slate-200 bg-white/5 border border-white/10 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 w-[220px]"
+          />
+        )}
         <div className="flex-1" />
         <button
           onClick={() => setShareOpen(true)}
@@ -513,6 +632,8 @@ export function EditorClient({ pipeline, collabRoom }: Props) {
       <EditorToolbar
         className="hidden md:flex"
         pipelineName={pipelineName}
+        canRename={isOwner}
+        onRename={isOwner ? handleRename : undefined}
         onRun={handleRun}
         onSave={handleSave}
         saveState={saveState}
