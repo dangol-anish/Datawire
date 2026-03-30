@@ -48,16 +48,43 @@ export function HomeClient({
   const [creating, setCreating] = useState(false);
   const [templateBusy, setTemplateBusy] = useState<string | null>(null);
   const hasExamples = templates.length > 0;
+  const PAGE_SIZE = 8;
   const [tab, setTab] = useState<HomeTab>(() => {
     if (pipelines.length > 0) return "your";
     if (sharedPipelines.length > 0) return "shared";
     if (hasExamples) return "examples";
     return "your";
   });
+  const [yourPage, setYourPage] = useState(1);
+  const [sharedPage, setSharedPage] = useState(1);
+  const [examplesPage, setExamplesPage] = useState(1);
 
   const headerLabel = useMemo(() => {
     return user?.name || user?.email || "Account";
   }, [user?.name, user?.email]);
+
+  const totalYourPages = Math.max(1, Math.ceil(pipelines.length / PAGE_SIZE));
+  const totalSharedPages = Math.max(1, Math.ceil(sharedPipelines.length / PAGE_SIZE));
+  const totalExamplePages = Math.max(1, Math.ceil(templates.length / PAGE_SIZE));
+
+  const yourPageClamped = Math.min(Math.max(1, yourPage), totalYourPages);
+  const sharedPageClamped = Math.min(Math.max(1, sharedPage), totalSharedPages);
+  const examplesPageClamped = Math.min(Math.max(1, examplesPage), totalExamplePages);
+
+  const yourPipelinesPage = useMemo(() => {
+    const start = (yourPageClamped - 1) * PAGE_SIZE;
+    return pipelines.slice(start, start + PAGE_SIZE);
+  }, [pipelines, yourPageClamped]);
+
+  const sharedPipelinesPage = useMemo(() => {
+    const start = (sharedPageClamped - 1) * PAGE_SIZE;
+    return sharedPipelines.slice(start, start + PAGE_SIZE);
+  }, [sharedPipelines, sharedPageClamped]);
+
+  const templatesPage = useMemo(() => {
+    const start = (examplesPageClamped - 1) * PAGE_SIZE;
+    return templates.slice(start, start + PAGE_SIZE);
+  }, [templates, examplesPageClamped]);
 
   useEffect(() => {
     try {
@@ -77,6 +104,21 @@ export function HomeClient({
       // ignore
     }
   }, [tab]);
+
+  useEffect(() => {
+    if (yourPage !== yourPageClamped) setYourPage(yourPageClamped);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [yourPageClamped]);
+
+  useEffect(() => {
+    if (sharedPage !== sharedPageClamped) setSharedPage(sharedPageClamped);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sharedPageClamped]);
+
+  useEffect(() => {
+    if (examplesPage !== examplesPageClamped) setExamplesPage(examplesPageClamped);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [examplesPageClamped]);
 
   useEffect(() => {
     if (tab !== "examples") return;
@@ -249,7 +291,7 @@ export function HomeClient({
               </p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {templates.map((t) => (
+              {templatesPage.map((t) => (
                 <div
                   key={t.id}
                   className="rounded-2xl border border-border bg-surface p-5 flex flex-col gap-3"
@@ -284,6 +326,31 @@ export function HomeClient({
                 </div>
               ))}
             </div>
+            {totalExamplePages > 1 && (
+              <div className="flex items-center justify-center gap-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => setExamplesPage((p) => Math.max(1, p - 1))}
+                  disabled={examplesPageClamped <= 1}
+                  className="h-9 px-3 rounded-lg text-sm font-semibold text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Previous
+                </button>
+                <div className="text-sm text-slate-400">
+                  Page {examplesPageClamped} of {totalExamplePages}
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setExamplesPage((p) => Math.min(totalExamplePages, p + 1))
+                  }
+                  disabled={examplesPageClamped >= totalExamplePages}
+                  className="h-9 px-3 rounded-lg text-sm font-semibold text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Next
+                </button>
+              </div>
+            )}
           </section>
         )}
 
@@ -306,7 +373,7 @@ export function HomeClient({
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {pipelines.map((p) => (
+              {yourPipelinesPage.map((p) => (
                 <div
                   key={p.id}
                   className="rounded-2xl border border-border bg-surface p-5 flex flex-col gap-3"
@@ -353,6 +420,30 @@ export function HomeClient({
             </div>
           ))}
 
+        {tab === "your" && pipelines.length > 0 && totalYourPages > 1 && (
+          <div className="flex items-center justify-center gap-3 mt-6">
+            <button
+              type="button"
+              onClick={() => setYourPage((p) => Math.max(1, p - 1))}
+              disabled={yourPageClamped <= 1}
+              className="h-9 px-3 rounded-lg text-sm font-semibold text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              Previous
+            </button>
+            <div className="text-sm text-slate-400">
+              Page {yourPageClamped} of {totalYourPages}
+            </div>
+            <button
+              type="button"
+              onClick={() => setYourPage((p) => Math.min(totalYourPages, p + 1))}
+              disabled={yourPageClamped >= totalYourPages}
+              className="h-9 px-3 rounded-lg text-sm font-semibold text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              Next
+            </button>
+          </div>
+        )}
+
         {tab === "shared" &&
           (sharedPipelines.length === 0 ? (
             <div className="rounded-2xl border border-border bg-surface p-10">
@@ -364,7 +455,7 @@ export function HomeClient({
           ) : (
             <section>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {sharedPipelines.map((p) => (
+                {sharedPipelinesPage.map((p) => (
                   <div
                     key={p.id}
                     className="rounded-2xl border border-border bg-surface p-5 flex flex-col gap-3"
@@ -412,6 +503,32 @@ export function HomeClient({
               </div>
             </section>
           ))}
+
+        {tab === "shared" && sharedPipelines.length > 0 && totalSharedPages > 1 && (
+          <div className="flex items-center justify-center gap-3 mt-6">
+            <button
+              type="button"
+              onClick={() => setSharedPage((p) => Math.max(1, p - 1))}
+              disabled={sharedPageClamped <= 1}
+              className="h-9 px-3 rounded-lg text-sm font-semibold text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              Previous
+            </button>
+            <div className="text-sm text-slate-400">
+              Page {sharedPageClamped} of {totalSharedPages}
+            </div>
+            <button
+              type="button"
+              onClick={() =>
+                setSharedPage((p) => Math.min(totalSharedPages, p + 1))
+              }
+              disabled={sharedPageClamped >= totalSharedPages}
+              className="h-9 px-3 rounded-lg text-sm font-semibold text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              Next
+            </button>
+          </div>
+        )}
       </div>
     </main>
   );
