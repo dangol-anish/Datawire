@@ -13,6 +13,7 @@ interface ToolbarProps {
   onShare?: () => void;
   saveState?: "saved" | "saving" | "dirty" | "error";
   collabState?: "disabled" | "connecting" | "connected" | "reconnecting" | "error";
+  pendingRequestsCount?: number;
   className?: string;
   onUndo?: () => void;
   onRedo?: () => void;
@@ -29,6 +30,7 @@ export function EditorToolbar({
   onShare,
   saveState,
   collabState,
+  pendingRequestsCount,
   className,
   onUndo,
   onRedo,
@@ -184,7 +186,20 @@ export function EditorToolbar({
           className="flex items-center gap-1.5 px-3 h-7 rounded-md text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 transition-colors"
           title="Share / Invite"
         >
-          Share
+          <span>Share</span>
+          {(pendingRequestsCount ?? 0) > 0 && (
+            <span
+              className="ml-1 text-[11px] px-2 py-0.5 rounded-full"
+              style={{
+                background: "rgba(239,68,68,0.18)",
+                color: "#fecaca",
+                border: "1px solid rgba(255,255,255,0.06)",
+              }}
+              title={`${pendingRequestsCount} pending access request(s)`}
+            >
+              {pendingRequestsCount}
+            </span>
+          )}
         </button>
       )}
 

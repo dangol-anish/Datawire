@@ -85,6 +85,8 @@ export function EditorClient({ pipeline, collabRoom }: Props) {
   const [isPublic, setIsPublic] = React.useState(pipeline.is_public);
   const [shareOpen, setShareOpen] = React.useState(false);
   const isOwner = Boolean(myUserId && pipeline.user_id === myUserId);
+  const [pendingRequestsCount, setPendingRequestsCount] = React.useState(0);
+  const lastPendingCountRef = useRef(0);
   const [mobilePanel, setMobilePanel] = React.useState<null | "nodes" | "config">(
     null,
   );
@@ -139,6 +141,40 @@ export function EditorClient({ pipeline, collabRoom }: Props) {
     }
     setCollabEnabled(true);
   }, [pipeline.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Owner-only: poll for pending access requests so the owner sees new requests without opening Share.
+  useEffect(() => {
+    if (!isOwner) return;
+    if (!myUserId) return;
+
+    let cancelled = false;
+
+    const tick = async () => {
+      try {
+        const res = await fetch(`/api/pipelines/${pipeline.id}/access-requests`, {
+          cache: "no-store",
+        });
+        if (!res.ok) return;
+        const body = (await res.json().catch(() => null)) as
+          | { requests?: Array<{ status?: string }> }
+          | null;
+        if (!body?.requests) return;
+        const pending = body.requests.filter((r) => r.status === "pending").length;
+        if (cancelled) return;
+        setPendingRequestsCount(pending);
+        lastPendingCountRef.current = pending;
+      } catch {
+        // ignore
+      }
+    };
+
+    tick();
+    const t = window.setInterval(tick, 8000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(t);
+    };
+  }, [isOwner, myUserId, pipeline.id]);
 
   // If the owner downgrades this user from editor -> viewer, auto-switch them to the read-only view.
   useEffect(() => {
@@ -455,7 +491,22 @@ export function EditorClient({ pipeline, collabRoom }: Props) {
           onClick={() => setShareOpen(true)}
           className="h-8 px-3 rounded-md text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 transition-colors"
         >
-          Share
+          <span className="inline-flex items-center gap-2">
+            Share
+            {pendingRequestsCount > 0 && (
+              <span
+                className="text-[11px] px-2 py-0.5 rounded-full"
+                style={{
+                  background: "rgba(239,68,68,0.18)",
+                  color: "#fecaca",
+                  border: "1px solid rgba(255,255,255,0.06)",
+                }}
+                title={`${pendingRequestsCount} pending access request(s)`}
+              >
+                {pendingRequestsCount}
+              </span>
+            )}
+          </span>
         </button>
       </div>
 
@@ -466,6 +517,7 @@ export function EditorClient({ pipeline, collabRoom }: Props) {
         onSave={handleSave}
         saveState={saveState}
         collabState={connectionState}
+        pendingRequestsCount={pendingRequestsCount}
         onDeleteSelected={handleDeleteSelected}
         onClear={handleClear}
         onShare={() => setShareOpen(true)}
