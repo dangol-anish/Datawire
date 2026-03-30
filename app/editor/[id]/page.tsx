@@ -4,6 +4,7 @@ import { redirect, notFound } from "next/navigation";
 import { canEditPipeline, canViewPipeline, getPipelineByIdForUser } from "@/lib/pipelineAccess";
 import { EditorClient } from "./EditorClient";
 import { createHmac } from "crypto";
+import { isUuid } from "@/lib/uuid";
 
 interface Props {
   params: { id: string };
@@ -14,6 +15,8 @@ export const dynamic = "force-dynamic";
 export default async function EditorPage({ params }: Props) {
   const session = await getServerSession(authOptions);
   if (!session) redirect("/login");
+  if (!isUuid(session.user.id)) redirect("/login");
+  if (!isUuid(params.id)) notFound();
 
   const pipeline = await getPipelineByIdForUser({
     pipelineId: params.id,

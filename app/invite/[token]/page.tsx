@@ -3,6 +3,7 @@ import { authOptions } from "@/lib/nextAuthOptions";
 import { redirect } from "next/navigation";
 import { hashInviteToken } from "@/lib/inviteTokens";
 import { supabaseServer } from "@/lib/supabaseServer";
+import { isUuid } from "@/lib/uuid";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +16,7 @@ export default async function InviteAcceptPage({
   if (!session) {
     redirect(`/login?callbackUrl=${encodeURIComponent(`/invite/${params.token}`)}`);
   }
+  if (!isUuid(session.user.id)) redirect("/login");
 
   const tokenHash = hashInviteToken(params.token);
 

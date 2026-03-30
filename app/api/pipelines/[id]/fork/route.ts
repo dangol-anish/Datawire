@@ -3,11 +3,9 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/nextAuthOptions";
 import { canViewPipeline, getPipelineByIdForUser } from "@/lib/pipelineAccess";
 import { supabaseServer } from "@/lib/supabaseServer";
+import { isUuid } from "@/lib/uuid";
 
 export const runtime = "nodejs";
-
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function POST(
   _req: Request,
@@ -17,9 +15,15 @@ export async function POST(
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const userId = session.user.id;
-  if (!UUID_RE.test(userId)) {
+  if (!isUuid(userId)) {
     return NextResponse.json(
       { error: "Invalid session user id (expected UUID)" },
+      { status: 400 },
+    );
+  }
+  if (!isUuid(params.id)) {
+    return NextResponse.json(
+      { error: "Invalid pipeline id (expected UUID)" },
       { status: 400 },
     );
   }

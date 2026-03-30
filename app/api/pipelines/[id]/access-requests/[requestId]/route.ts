@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/nextAuthOptions";
 import { isPipelineOwner } from "@/lib/pipelineAccess";
 import { supabaseServer } from "@/lib/supabaseServer";
+import { isUuid } from "@/lib/uuid";
 
 export const runtime = "nodejs";
 
@@ -12,6 +13,18 @@ export async function PATCH(
 ) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isUuid(session.user.id)) {
+    return NextResponse.json(
+      { error: "Invalid session user id (expected UUID)" },
+      { status: 400 },
+    );
+  }
+  if (!isUuid(params.id) || !isUuid(params.requestId)) {
+    return NextResponse.json(
+      { error: "Invalid id (expected UUID)" },
+      { status: 400 },
+    );
+  }
 
   const owner = await isPipelineOwner({
     pipelineId: params.id,
@@ -36,13 +49,22 @@ export async function PATCH(
     .eq("id", params.requestId)
     .single();
 
-  if (reqErr) return NextResponse.json({ error: reqErr.message }, { status: 500 });
+  if (reqErr) {
+    const msg = reqErr.message.toLowerCase();
+    const notFound =
+      msg.includes("0 rows") || msg.includes("no rows") || msg.includes("not found");
+    return NextResponse.json(
+      { error: notFound ? "Not found" : reqErr.message },
+      { status: notFound ? 404 : 500 },
+    );
+  }
   if (!requestRow) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const { error: updErr } = await supabase
     .from("pipeline_access_requests")
     .update({ status: nextStatus })
-    .eq("id", params.requestId);
+    .eq("id", params.requestId)
+    .eq("pipeline_id", params.id);
 
   if (updErr) return NextResponse.json({ error: updErr.message }, { status: 500 });
 

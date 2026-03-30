@@ -4,12 +4,14 @@ import { redirect } from "next/navigation";
 import { HomeClient } from "./HomeClient";
 import { PIPELINE_TEMPLATES } from "@/lib/pipelineTemplates";
 import { supabaseServer } from "@/lib/supabaseServer";
+import { isUuid } from "@/lib/uuid";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   const session = await getServerSession(authOptions);
   if (!session) redirect("/login");
+  if (!isUuid(session.user.id)) redirect("/login");
 
   const supabase = supabaseServer;
 

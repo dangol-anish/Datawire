@@ -5,6 +5,7 @@ import { generateInviteToken, hashInviteToken } from "@/lib/inviteTokens";
 import { isPipelineOwner } from "@/lib/pipelineAccess";
 import { getRequestOrigin } from "@/lib/requestOrigin";
 import { supabaseServer } from "@/lib/supabaseServer";
+import { isUuid } from "@/lib/uuid";
 
 export const runtime = "nodejs";
 
@@ -16,6 +17,18 @@ export async function POST(
 ) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isUuid(session.user.id)) {
+    return NextResponse.json(
+      { error: "Invalid session user id (expected UUID)" },
+      { status: 400 },
+    );
+  }
+  if (!isUuid(params.id)) {
+    return NextResponse.json(
+      { error: "Invalid pipeline id (expected UUID)" },
+      { status: 400 },
+    );
+  }
 
   const owner = await isPipelineOwner({
     pipelineId: params.id,

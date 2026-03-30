@@ -9,6 +9,7 @@ import {
   getPipelineByIdForUser,
   getPipelineByIdPublic,
 } from "@/lib/pipelineAccess";
+import { isUuid } from "@/lib/uuid";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,7 @@ export default async function SharedViewPage({
   const session = await getServerSession(authOptions);
 
   // If the user has edit access, prefer the editor route over the shared view.
-  if (session?.user?.id) {
+  if (session?.user?.id && isUuid(session.user.id) && isUuid(params.id)) {
     const canEdit = await canEditPipeline({
       pipelineId: params.id,
       userId: session.user.id,
@@ -36,6 +37,8 @@ export default async function SharedViewPage({
 
   // Private pipelines require collaborator access.
   if (!session) notFound();
+  if (!isUuid(session.user.id)) notFound();
+  if (!isUuid(params.id)) notFound();
 
   const ok = await canViewPipeline({
     pipelineId: params.id,

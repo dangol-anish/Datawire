@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/nextAuthOptions";
 import { canViewPipeline, isPipelineOwner } from "@/lib/pipelineAccess";
 import { supabaseServer } from "@/lib/supabaseServer";
+import { isUuid } from "@/lib/uuid";
 
 export const runtime = "nodejs";
 
@@ -12,6 +13,18 @@ export async function POST(
 ) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isUuid(session.user.id)) {
+    return NextResponse.json(
+      { error: "Invalid session user id (expected UUID)" },
+      { status: 400 },
+    );
+  }
+  if (!isUuid(params.id)) {
+    return NextResponse.json(
+      { error: "Invalid pipeline id (expected UUID)" },
+      { status: 400 },
+    );
+  }
 
   // Must at least be able to view to request.
   const ok = await canViewPipeline({
@@ -41,6 +54,18 @@ export async function GET(
 ) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isUuid(session.user.id)) {
+    return NextResponse.json(
+      { error: "Invalid session user id (expected UUID)" },
+      { status: 400 },
+    );
+  }
+  if (!isUuid(params.id)) {
+    return NextResponse.json(
+      { error: "Invalid pipeline id (expected UUID)" },
+      { status: 400 },
+    );
+  }
 
   const owner = await isPipelineOwner({
     pipelineId: params.id,
