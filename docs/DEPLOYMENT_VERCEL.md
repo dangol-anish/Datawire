@@ -18,8 +18,7 @@ Apply the SQL in:
 - `docs/INVITES_SQL.md`
 
 Notes:
-- This repo uses Supabase **RLS** for normal CRUD (server mints a short-lived Supabase JWT using `SUPABASE_JWT_SECRET`).
-- The **service role** key (`SUPABASE_SERVICE_ROLE_KEY`) is still required for admin-only operations (creating Supabase Auth users for OAuth + email/password signup).
+- This repo uses the **service role** key (`SUPABASE_SERVICE_ROLE_KEY`) for server-side Supabase access, which **bypasses RLS**. All server queries must manually scope data to the current user (e.g. `.eq("user_id", userId)`) or enforce access via explicit checks.
 - Some tables may not include `updated_at`. The app is tolerant of missing timestamp columns.
 
 ## 2) OAuth provider configuration
@@ -51,7 +50,6 @@ On Vercel, set these environment variables (Project → Settings → Environment
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
-- `SUPABASE_JWT_SECRET`
 - `NEXTAUTH_SECRET`
 - `NEXTAUTH_URL` (set to your production domain, e.g. `https://yourapp.vercel.app`)
 - `GOOGLE_CLIENT_ID`
