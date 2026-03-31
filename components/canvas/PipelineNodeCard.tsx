@@ -130,7 +130,7 @@ export function PipelineNodeCard({ id, data, selected }: NodeProps<NodeData>) {
               def?.inputs === 1
                 ? "50%"
                 : `${((i + 1) / (def.inputs + 1)) * 100}%`,
-            background: "#6366f1",
+            background: def?.color ?? "#6366f1",
             border: "2px solid #161b27",
             width: 10,
             height: 10,
