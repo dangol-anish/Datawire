@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { LuX } from "react-icons/lu";
+import { LuChevronDown, LuLoaderCircle, LuX } from "react-icons/lu";
 import { useConfirm } from "@/components/ui/ConfirmProvider";
 import { useToast } from "@/components/ui/ToastProvider";
 
@@ -63,7 +63,9 @@ export function ShareDialog({
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [savingSettings, setSavingSettings] = useState(false);
+  const [savingName, setSavingName] = useState(false);
   const [draftName, setDraftName] = useState(pipelineName);
+  const [savedName, setSavedName] = useState(pipelineName);
   const [draftPublic, setDraftPublic] = useState(isPublic);
 
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
@@ -88,6 +90,7 @@ export function ShareDialog({
     setError(null);
     setInviteUrl(null);
     setDraftName(pipelineName);
+    setSavedName(pipelineName);
     setDraftPublic(isPublic);
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -119,7 +122,16 @@ export function ShareDialog({
 
   const saveName = async () => {
     const name = draftName.trim();
-    await updateSettings({ name });
+    if (!name) return;
+    if (savingName) return;
+    setSavingName(true);
+    try {
+      await updateSettings({ name });
+      setSavedName(name);
+      setDraftName(name);
+    } finally {
+      setSavingName(false);
+    }
   };
 
   const togglePublic = async (next: boolean) => {
@@ -200,6 +212,12 @@ export function ShareDialog({
     return canManage ? "Share & Invite" : "Sharing";
   }, [canManage]);
 
+  const nameDirty = useMemo(() => {
+    const next = draftName.trim();
+    const baseline = savedName.trim();
+    return next.length > 0 && next !== baseline;
+  }, [draftName, savedName]);
+
   if (!open) return null;
 
   return (
@@ -213,7 +231,7 @@ export function ShareDialog({
         className="relative rounded-2xl overflow-hidden"
         style={{
           width: "min(820px, 92vw)",
-          height: "min(640px, 50vh)",
+          height: "min(640px, 70vh)",
           background: "#0d0f14",
           border: "1px solid #1e2330",
           boxShadow: "0 40px 120px rgba(0,0,0,0.75)",
@@ -245,9 +263,14 @@ export function ShareDialog({
                 className="rounded-xl p-4 mb-4"
                 style={{ border: "1px solid #1e2330", background: "#0b0d12" }}
               >
-                <p className="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-3">
-                  Pipeline Settings
-                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <p className="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-3">
+                    Pipeline Settings
+                  </p>
+                  <p className="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-3">
+                    Visibility
+                  </p>
+                </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
@@ -264,30 +287,57 @@ export function ShareDialog({
                       />
                       <button
                         onClick={saveName}
-                        disabled={
-                          savingSettings ||
-                          draftName.trim() === pipelineName.trim()
-                        }
+                        disabled={savingSettings || savingName || !nameDirty}
                         className="h-9 px-3 rounded-lg text-sm font-semibold disabled:opacity-60 text-white border border-white/10 hover:bg-white/5 transition-colors"
+                        aria-busy={savingName}
                       >
-                        Save
+                        {savingName ? (
+                          <span className="inline-flex items-center gap-2">
+                            <LuLoaderCircle
+                              size={14}
+                              className="animate-spin"
+                            />
+                            Saving…
+                          </span>
+                        ) : (
+                          "Save"
+                        )}
                       </button>
                     </div>
                   </div>
-
-                  <div>
-                    <p className="text-xs text-slate-500 mb-1">Visibility</p>
-                    <label className="flex items-center gap-2 select-none">
-                      <input
-                        type="checkbox"
-                        checked={draftPublic}
-                        onChange={(e) => void togglePublic(e.target.checked)}
+                  <div className="rounded-xl">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-200">
+                          Public link
+                        </p>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          Anyone with the link can view.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={draftPublic}
+                        onClick={() => void togglePublic(!draftPublic)}
                         disabled={savingSettings}
-                      />
-                      <span className="text-sm text-slate-200">
-                        Public link enabled
-                      </span>
-                    </label>
+                        className="relative inline-flex h-7 w-12 items-center rounded-full border transition-all duration-300 disabled:opacity-60 disabled:cursor-not-allowed"
+                        style={{
+                          background: draftPublic ? "#6366f1" : "#161b27",
+                          borderColor: draftPublic ? "#6366f1" : "#2a3347",
+                        }}
+                        title={draftPublic ? "Public" : "Private"}
+                      >
+                        <span
+                          className="inline-block h-5 w-5 transform rounded-full bg-white transition-transform duration-300 ease-out"
+                          style={{
+                            transform: draftPublic
+                              ? "translateX(26px)"
+                              : "translateX(4px)",
+                          }}
+                        />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -300,27 +350,41 @@ export function ShareDialog({
                   Invite Link (Reusable)
                 </p>
                 <div className="flex items-center gap-2">
-                  <select
-                    value={role}
-                    onChange={(e) =>
-                      setRole(e.target.value === "editor" ? "editor" : "viewer")
-                    }
-                    className="h-9 px-3 rounded-lg text-sm text-white outline-none"
-                    style={{
-                      background: "#161b27",
-                      border: "1px solid #2a3347",
-                    }}
-                  >
-                    <option value="viewer">Viewer (read-only)</option>
-                    <option value="editor">Editor (can save)</option>
-                  </select>
+                  <div className="relative">
+                    <select
+                      value={role}
+                      onChange={(e) =>
+                        setRole(
+                          e.target.value === "editor" ? "editor" : "viewer",
+                        )
+                      }
+                      className="h-9 pl-4 pr-10 rounded-lg bg-surface border border-border text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/30 appearance-none"
+                    >
+                      <option value="viewer">Viewer (read-only)</option>
+                      <option value="editor">Editor (can save)</option>
+                    </select>
+                    <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+                      <LuChevronDown size={16} />
+                    </div>
+                  </div>
                   <button
                     onClick={createInvite}
                     disabled={busy}
-                    className="h-9 px-4 rounded-lg text-sm font-semibold disabled:opacity-60"
-                    style={{ background: "#6366f1", color: "white" }}
+                    className="h-9 px-4 rounded-lg text-sm font-semibold text-white disabled:opacity-60 transition-all hover:brightness-110"
+                    style={{
+                      background: busy
+                        ? "#2a3347"
+                        : "linear-gradient(90deg, #a3a6ff, #8387ff)",
+                    }}
                   >
-                    {busy ? "Creating…" : "Create invite"}
+                    {busy ? (
+                      <span className="inline-flex items-center gap-2">
+                        <LuLoaderCircle size={14} className="animate-spin" />
+                        Creating…
+                      </span>
+                    ) : (
+                      "Create invite"
+                    )}
                   </button>
                 </div>
 
