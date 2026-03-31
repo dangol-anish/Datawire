@@ -7,6 +7,49 @@ import { isUuid } from "@/lib/uuid";
 
 export const runtime = "nodejs";
 
+type UserSummary = {
+  id: string;
+  email: string | null;
+  name: string | null;
+  avatar_url: string | null;
+};
+
+async function hydrateUserSummaries(userIds: string[]) {
+  const unique = Array.from(new Set(userIds.filter((id) => isUuid(id))));
+  if (unique.length === 0) return new Map<string, UserSummary>();
+
+  const results = await Promise.all(
+    unique.map(async (id) => {
+      const { data, error } = await supabaseServer.auth.admin.getUserById(id);
+      if (error || !data?.user) return [id, null] as const;
+      const meta = (data.user as any)?.user_metadata as
+        | Record<string, unknown>
+        | undefined;
+      const name =
+        (typeof meta?.name === "string" ? meta?.name : null) ??
+        (typeof meta?.full_name === "string" ? meta?.full_name : null) ??
+        null;
+      const avatarUrl =
+        (typeof meta?.avatar_url === "string" ? meta?.avatar_url : null) ?? null;
+      return [
+        id,
+        {
+          id,
+          email: typeof data.user.email === "string" ? data.user.email : null,
+          name,
+          avatar_url: avatarUrl,
+        } satisfies UserSummary,
+      ] as const;
+    }),
+  );
+
+  const map = new Map<string, UserSummary>();
+  for (const [id, summary] of results) {
+    if (summary) map.set(id, summary);
+  }
+  return map;
+}
+
 export async function GET(
   _req: Request,
   { params }: { params: { id: string } },
@@ -40,7 +83,13 @@ export async function GET(
     .order("created_at", { ascending: false });
 
   if (!primary.error) {
-    return NextResponse.json({ collaborators: primary.data ?? [] });
+    const rows = primary.data ?? [];
+    const users = await hydrateUserSummaries(rows.map((r) => r.user_id));
+    const hydrated = rows.map((r) => ({
+      ...r,
+      user: users.get(r.user_id) ?? null,
+    }));
+    return NextResponse.json({ collaborators: hydrated });
   }
 
   // Be tolerant of schemas that omit timestamp columns.
@@ -52,7 +101,13 @@ export async function GET(
     if (fallback.error) {
       return NextResponse.json({ error: fallback.error.message }, { status: 500 });
     }
-    return NextResponse.json({ collaborators: fallback.data ?? [] });
+    const rows = fallback.data ?? [];
+    const users = await hydrateUserSummaries(rows.map((r) => r.user_id));
+    const hydrated = rows.map((r) => ({
+      ...r,
+      user: users.get(r.user_id) ?? null,
+    }));
+    return NextResponse.json({ collaborators: hydrated });
   }
 
   return NextResponse.json({ error: primary.error.message }, { status: 500 });

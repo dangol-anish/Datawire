@@ -7,6 +7,12 @@ import { useToast } from "@/components/ui/ToastProvider";
 
 type Collaborator = {
   user_id: string;
+  user?: {
+    id: string;
+    email: string | null;
+    name: string | null;
+    avatar_url: string | null;
+  } | null;
   role: "viewer" | "editor";
   created_at?: string;
   updated_at?: string;
@@ -15,10 +21,37 @@ type Collaborator = {
 type AccessRequest = {
   id: string;
   user_id: string;
+  user?: {
+    id: string;
+    email: string | null;
+    name: string | null;
+    avatar_url: string | null;
+  } | null;
   status: "pending" | "approved" | "denied";
   created_at?: string;
   updated_at?: string;
 };
+
+function clampInt(value: number, min: number, max: number) {
+  if (!Number.isFinite(value)) return min;
+  return Math.max(min, Math.min(max, Math.trunc(value)));
+}
+
+function hashToHex(input: string) {
+  // Simple deterministic hash (good enough for fake IDs).
+  let h = 2166136261;
+  for (let i = 0; i < input.length; i++) {
+    h ^= input.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  const hex = (h >>> 0).toString(16).padStart(8, "0");
+  return `${hex}${hex}${hex}${hex}`.slice(0, 32);
+}
+
+function hexToUuidLike(hex32: string) {
+  const h = hex32.padEnd(32, "0").slice(0, 32);
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
+}
 
 function formatDate(iso?: string | null) {
   if (!iso) return "";
@@ -67,6 +100,11 @@ export function ShareDialog({
   const [draftName, setDraftName] = useState(pipelineName);
   const [savedName, setSavedName] = useState(pipelineName);
   const [draftPublic, setDraftPublic] = useState(isPublic);
+  const [mockInfo, setMockInfo] = useState<{
+    enabled: boolean;
+    collabs: number;
+    reqs: number;
+  } | null>(null);
 
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
   const [requests, setRequests] = useState<AccessRequest[]>([]);
@@ -92,6 +130,75 @@ export function ShareDialog({
     setDraftName(pipelineName);
     setSavedName(pipelineName);
     setDraftPublic(isPublic);
+    setMockInfo(null);
+    if (typeof window !== "undefined" && process.env.NODE_ENV === "development") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.has("mockShare")) {
+        const collabs = clampInt(Number(params.get("collabs") ?? 25), 1, 250);
+        const reqs = clampInt(Number(params.get("reqs") ?? 40), 0, 500);
+        const now = Date.now();
+
+        const nextCollaborators: Collaborator[] = Array.from(
+          { length: collabs },
+          (_, i) => {
+            const userId = hexToUuidLike(hashToHex(`${pipelineId}:c:${i}`));
+            const daysAgo = (i % 30) + 1;
+            const createdAt = new Date(now - daysAgo * 24 * 60 * 60 * 1000);
+            const updatedAt = new Date(
+              createdAt.getTime() + ((i % 10) + 1) * 60 * 60 * 1000,
+            );
+            return {
+              user_id: userId,
+              user: {
+                id: userId,
+                email: `user${i + 1}@example.com`,
+                name: `User ${i + 1}`,
+                avatar_url: null,
+              },
+              role: i % 3 === 0 ? "editor" : "viewer",
+              created_at: createdAt.toISOString(),
+              updated_at: updatedAt.toISOString(),
+            };
+          },
+        );
+
+        const nextRequests: AccessRequest[] = Array.from(
+          { length: reqs },
+          (_, i) => {
+            const id = hexToUuidLike(hashToHex(`${pipelineId}:r:${i}`));
+            const userId = hexToUuidLike(hashToHex(`${pipelineId}:ru:${i}`));
+            const minutesAgo = (i + 1) * 13;
+            const createdAt = new Date(now - minutesAgo * 60 * 1000);
+            const statusRoll = i % 10;
+            const status: AccessRequest["status"] =
+              statusRoll < 6 ? "pending" : statusRoll < 8 ? "approved" : "denied";
+            const updatedAt =
+              status === "pending"
+                ? undefined
+                : new Date(createdAt.getTime() + 12 * 60 * 1000).toISOString();
+            return {
+              id,
+              user_id: userId,
+              user: {
+                id: userId,
+                email: `requester${i + 1}@example.com`,
+                name: `Requester ${i + 1}`,
+                avatar_url: null,
+              },
+              status,
+              created_at: createdAt.toISOString(),
+              updated_at: updatedAt,
+            };
+          },
+        );
+
+        setCollaborators(nextCollaborators);
+        setRequests(nextRequests);
+        setMockInfo({ enabled: true, collabs, reqs });
+        return;
+      }
+    }
+
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, isPublic, pipelineName]);
@@ -218,6 +325,14 @@ export function ShareDialog({
     return next.length > 0 && next !== baseline;
   }, [draftName, savedName]);
 
+  const displayLabelForUser = (userId: string, user?: { name: string | null; email: string | null } | null) => {
+    const name = user?.name?.trim();
+    if (name) return name;
+    const email = user?.email?.trim();
+    if (email) return email;
+    return userId;
+  };
+
   if (!open) return null;
 
   return (
@@ -242,6 +357,11 @@ export function ShareDialog({
           style={{ borderBottom: "1px solid #1e2330" }}
         >
           <p className="text-sm font-semibold text-slate-200">{title}</p>
+          {mockInfo?.enabled && (
+            <span className="text-[11px] px-2 py-1 rounded-full border border-white/10 text-slate-400 bg-white/5">
+              Mock data · {mockInfo.reqs} requests · {mockInfo.collabs} collabs
+            </span>
+          )}
           <div className="flex-1" />
           <button
             onClick={onClose}
@@ -358,12 +478,12 @@ export function ShareDialog({
                           e.target.value === "editor" ? "editor" : "viewer",
                         )
                       }
-                      className="h-9 pl-4 pr-10 rounded-lg bg-surface border border-border text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/30 appearance-none"
+                      className="h-9 pl-4 pr-11 rounded-lg bg-surface border border-border text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/30 appearance-none"
                     >
                       <option value="viewer">Viewer (read-only)</option>
                       <option value="editor">Editor (can save)</option>
                     </select>
-                    <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+                    <div className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">
                       <LuChevronDown size={16} />
                     </div>
                   </div>
@@ -442,10 +562,11 @@ export function ShareDialog({
                           }}
                         >
                           <div className="min-w-0 flex-1">
-                            <p className="text-xs font-mono text-slate-300 truncate">
-                              {r.user_id}
+                            <p className="text-xs font-semibold text-slate-200 truncate">
+                              {displayLabelForUser(r.user_id, r.user ?? null)}
                             </p>
-                            <p className="text-xs text-slate-600">
+                            <p className="text-xs text-slate-600 truncate">
+                              <span className="font-mono">{r.user_id}</span> ·{" "}
                               {r.status} ·{" "}
                               {formatDate(r.updated_at ?? r.created_at)}
                             </p>
@@ -454,15 +575,13 @@ export function ShareDialog({
                             <>
                               <button
                                 onClick={() => actOnRequest(r.id, "approve")}
-                                className="h-8 px-3 rounded-md text-xs font-semibold text-white"
-                                style={{ background: "#22c55e" }}
+                                className="h-7 px-2 rounded-md text-[11px] font-semibold text-white border border-emerald-500/40 bg-emerald-600 hover:bg-emerald-500 transition-colors"
                               >
                                 Approve
                               </button>
                               <button
                                 onClick={() => actOnRequest(r.id, "deny")}
-                                className="h-8 px-3 rounded-md text-xs font-semibold text-white"
-                                style={{ background: "#ef4444" }}
+                                className="h-7 px-2 rounded-md text-[11px] font-semibold text-white border border-red-500/40 bg-red-600 hover:bg-red-500 transition-colors"
                               >
                                 Deny
                               </button>
@@ -497,10 +616,11 @@ export function ShareDialog({
                           }}
                         >
                           <div className="min-w-0 flex-1">
-                            <p className="text-xs font-mono text-slate-300 truncate">
-                              {c.user_id}
+                            <p className="text-xs font-semibold text-slate-200 truncate">
+                              {displayLabelForUser(c.user_id, c.user ?? null)}
                             </p>
-                            <p className="text-xs text-slate-600">
+                            <p className="text-xs text-slate-600 truncate">
+                              <span className="font-mono">{c.user_id}</span> ·{" "}
                               {c.role} ·{" "}
                               {formatDate(c.updated_at ?? c.created_at)}
                             </p>
@@ -526,7 +646,7 @@ export function ShareDialog({
                           </select>
                           <button
                             onClick={() => removeCollaborator(c.user_id)}
-                            className="h-8 px-3 rounded-md text-xs font-semibold text-white border border-white/10 hover:bg-white/5 transition-colors"
+                            className="h-7 px-2 rounded-md text-[11px] font-semibold text-white border border-white/10 hover:bg-white/5 transition-colors"
                           >
                             Remove
                           </button>
