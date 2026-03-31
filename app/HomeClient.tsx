@@ -9,6 +9,7 @@ import type { PipelineTemplate } from "@/lib/pipelineTemplates";
 import {
   LuChevronDown,
   LuEllipsisVertical,
+  LuLoaderCircle,
   LuLogOut,
   LuPlus,
   LuSearch,
@@ -87,6 +88,7 @@ export function HomeClient({
     Array<{ id: string; name: string; href: string; accessedAt: number }>
   >([]);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [navigatingTo, setNavigatingTo] = useState<string | null>(null);
   const toast = useToast();
   const confirm = useConfirm();
   const [tab, setTab] = useState<HomeTab>(() => {
@@ -339,7 +341,7 @@ export function HomeClient({
     };
   }, [menuOpen]);
 
-  const createPipeline = async () => {
+  const createPipeline = async (opts?: { closeModal?: boolean }) => {
     if (creating) return;
     setCreating(true);
     try {
@@ -348,13 +350,17 @@ export function HomeClient({
       if (!res.ok) {
         throw new Error(body?.error ?? "Failed to create pipeline");
       }
+      if (opts?.closeModal) setNewOpen(false);
       router.push(`/editor/${body.id}`);
     } finally {
       setCreating(false);
     }
   };
 
-  const createFromTemplate = async (templateId: string) => {
+  const createFromTemplate = async (
+    templateId: string,
+    opts?: { closeModal?: boolean },
+  ) => {
     if (templateBusy) return;
     setTemplateBusy(templateId);
     try {
@@ -363,11 +369,24 @@ export function HomeClient({
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body?.error ?? "Failed to create pipeline");
+      if (opts?.closeModal) setNewOpen(false);
       router.push(`/editor/${body.id}`);
     } finally {
       setTemplateBusy(null);
     }
   };
+
+  const navigate = (key: string, href: string) => {
+    if (navigatingTo) return;
+    setNavigatingTo(key);
+    router.push(href);
+  };
+
+  useEffect(() => {
+    if (!navigatingTo) return;
+    const t = window.setTimeout(() => setNavigatingTo(null), 15_000);
+    return () => window.clearTimeout(t);
+  }, [navigatingTo]);
 
   useEffect(() => {
     if (!newOpen) return;
@@ -683,9 +702,9 @@ export function HomeClient({
                 .slice()
                 .sort((a, b) => b.accessedAt - a.accessedAt)
                 .map((r) => (
-                  <Link
+                  <button
                     key={r.id}
-                    href={r.href}
+                    type="button"
                     onClick={() => {
                       const next = recordRecentPipeline({
                         scope: user.id,
@@ -694,8 +713,10 @@ export function HomeClient({
                         href: r.href,
                       });
                       setRecent(next);
+                      navigate(`recent:${r.id}`, r.href);
                     }}
-                    className="rounded-2xl border border-border bg-surface p-4 flex items-center gap-3 hover:bg-white/5 transition-colors"
+                    className="rounded-2xl border border-border bg-surface p-4 flex items-center gap-3 hover:bg-white/5 transition-colors text-left disabled:opacity-70"
+                    disabled={navigatingTo !== null}
                   >
                     {/* <div
                       className="w-2 h-2 rounded-full"
@@ -709,10 +730,17 @@ export function HomeClient({
                         {r.href}
                       </div> */}
                     </div>
-                    <span className="text-xs text-slate-400 hover:text-accent">
-                      Open
-                    </span>
-                  </Link>
+                    {navigatingTo === `recent:${r.id}` ? (
+                      <LuLoaderCircle
+                        size={16}
+                        className="animate-spin text-slate-300"
+                      />
+                    ) : (
+                      <span className="text-xs text-slate-400 hover:text-accent">
+                        Open
+                      </span>
+                    )}
+                  </button>
                 ))}
             </div>
           </div>
@@ -736,7 +764,7 @@ export function HomeClient({
                 </div>
                 <div className="mt-1">
                   <button
-                    onClick={createPipeline}
+                    onClick={() => void createPipeline()}
                     className={clsx(
                       "h-8 px-3 rounded-lg text-white text-sm font-semibold transition-all",
                       creating
@@ -753,7 +781,14 @@ export function HomeClient({
                     }
                     disabled={creating}
                   >
-                    {creating ? "Creating…" : "Create pipeline"}
+                    {creating ? (
+                      <span className="inline-flex items-center gap-2">
+                        <LuLoaderCircle size={14} className="animate-spin" />
+                        Creating…
+                      </span>
+                    ) : (
+                      "Create pipeline"
+                    )}
                   </button>
                 </div>
               </div>
@@ -780,15 +815,31 @@ export function HomeClient({
                         onClick={() => void createFromTemplate(t.id)}
                         disabled={templateBusy !== null}
                         className="text-left rounded-2xl border border-border bg-[#0b0d12] p-4 hover:bg-white/5 transition-colors disabled:opacity-60"
+                        aria-busy={templateBusy === t.id}
                       >
-                        <div className="text-sm font-semibold text-white truncate">
-                          {t.name}
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="text-sm font-semibold text-white truncate">
+                            {t.name}
+                          </div>
+                          {templateBusy === t.id && (
+                            <LuLoaderCircle
+                              size={16}
+                              className="animate-spin text-slate-300 flex-shrink-0 mt-0.5"
+                            />
+                          )}
                         </div>
                         <div className="text-xs text-slate-500 mt-1 line-clamp-2">
                           {t.description}
                         </div>
-                        <div className="mt-3 text-[11px] text-slate-600">
-                          {t.graph_json.nodes.length} nodes
+                        <div className="mt-3 flex items-center justify-between gap-3">
+                          <div className="text-[11px] text-slate-600">
+                            {t.graph_json.nodes.length} nodes
+                          </div>
+                          {templateBusy === t.id && (
+                            <div className="text-[11px] text-slate-400">
+                              Creating…
+                            </div>
+                          )}
                         </div>
                       </button>
                     ))}
@@ -861,8 +912,8 @@ export function HomeClient({
                       {p.is_public ? "Public" : "Private"}
                     </span>
                     <div className="flex items-center justify-end gap-2 mt-2 ">
-                      <Link
-                        href={`/p/${p.id}`}
+                      <button
+                        type="button"
                         onClick={() => {
                           const next = recordRecentPipeline({
                             scope: user.id,
@@ -871,15 +922,24 @@ export function HomeClient({
                             href: `/p/${p.id}`,
                           });
                           setRecent(next);
+                          navigate(`owned:${p.id}:shared`, `/p/${p.id}`);
                         }}
                         className="h-8 px-3 rounded-md text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 transition-colors flex items-center"
                         title="Open share view (requires pipeline to be public)"
+                        disabled={navigatingTo !== null}
                       >
-                        Shared view
-                      </Link>
+                        {navigatingTo === `owned:${p.id}:shared` ? (
+                          <>
+                            <LuLoaderCircle size={14} className="animate-spin" />
+                            <span className="ml-2">Opening…</span>
+                          </>
+                        ) : (
+                          "Shared view"
+                        )}
+                      </button>
 
-                      <Link
-                        href={`/editor/${p.id}`}
+                      <button
+                        type="button"
                         onClick={() => {
                           const next = recordRecentPipeline({
                             scope: user.id,
@@ -888,15 +948,24 @@ export function HomeClient({
                             href: `/editor/${p.id}`,
                           });
                           setRecent(next);
+                          navigate(`owned:${p.id}:editor`, `/editor/${p.id}`);
                         }}
                         className="h-8 px-3 rounded-md text-xs font-semibold text-white hover:brightness-110 transition-all flex items-center"
                         style={{
                           background:
                             "linear-gradient(90deg, #a3a6ff, #8387ff)",
                         }}
+                        disabled={navigatingTo !== null}
                       >
-                        Open editor
-                      </Link>
+                        {navigatingTo === `owned:${p.id}:editor` ? (
+                          <>
+                            <LuLoaderCircle size={14} className="animate-spin" />
+                            <span className="ml-2">Opening…</span>
+                          </>
+                        ) : (
+                          "Open editor"
+                        )}
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -997,8 +1066,8 @@ export function HomeClient({
                     </div>
 
                     <div className="flex items-center justify-end gap-2 mt-2">
-                      <Link
-                        href={`/p/${p.id}`}
+                      <button
+                        type="button"
                         onClick={() => {
                           const next = recordRecentPipeline({
                             scope: user.id,
@@ -1007,16 +1076,23 @@ export function HomeClient({
                             href: `/p/${p.id}`,
                           });
                           setRecent(next);
+                          navigate(`shared:${p.id}:shared`, `/p/${p.id}`);
                         }}
                         className="h-8 px-3 rounded-md text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 hover:border-white/20 transition-colors flex items-center"
+                        disabled={navigatingTo !== null}
                       >
-                        Shared view
-                      </Link>
+                        {navigatingTo === `shared:${p.id}:shared` ? (
+                          <>
+                            <LuLoaderCircle size={14} className="animate-spin" />
+                            <span className="ml-2">Opening…</span>
+                          </>
+                        ) : (
+                          "Shared view"
+                        )}
+                      </button>
 
-                      <Link
-                        href={
-                          p.role === "editor" ? `/editor/${p.id}` : `/p/${p.id}`
-                        }
+                      <button
+                        type="button"
                         onClick={() => {
                           const href =
                             p.role === "editor"
@@ -1029,6 +1105,10 @@ export function HomeClient({
                             href,
                           });
                           setRecent(next);
+                          navigate(
+                            `shared:${p.id}:${p.role === "editor" ? "editor" : "open"}`,
+                            href,
+                          );
                         }}
                         className={clsx(
                           "h-8 px-3 rounded-md text-xs transition-all flex items-center",
@@ -1044,9 +1124,20 @@ export function HomeClient({
                               }
                             : undefined
                         }
+                        disabled={navigatingTo !== null}
                       >
-                        {p.role === "editor" ? "Open editor" : "Open"}
-                      </Link>
+                        {navigatingTo ===
+                        `shared:${p.id}:${p.role === "editor" ? "editor" : "open"}` ? (
+                          <>
+                            <LuLoaderCircle size={14} className="animate-spin" />
+                            <span className="ml-2">Opening…</span>
+                          </>
+                        ) : p.role === "editor" ? (
+                          "Open editor"
+                        ) : (
+                          "Open"
+                        )}
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -1146,8 +1237,7 @@ export function HomeClient({
                             <button
                               type="button"
                               onClick={async () => {
-                                setNewOpen(false);
-                                await createFromTemplate(t.id);
+                                await createFromTemplate(t.id, { closeModal: true });
                               }}
                               disabled={templateBusy !== null}
                               className={clsx(
@@ -1157,9 +1247,17 @@ export function HomeClient({
                                   : "bg-emerald-600 border-emerald-500/40 hover:bg-emerald-500 text-white",
                               )}
                             >
-                              {templateBusy === t.id
-                                ? "Creating…"
-                                : "Use template"}
+                              {templateBusy === t.id ? (
+                                <span className="inline-flex items-center gap-2">
+                                  <LuLoaderCircle
+                                    size={14}
+                                    className="animate-spin"
+                                  />
+                                  Creating…
+                                </span>
+                              ) : (
+                                "Use template"
+                              )}
                             </button>
                           </div>
                         </div>
@@ -1170,8 +1268,7 @@ export function HomeClient({
                       <button
                         type="button"
                         onClick={async () => {
-                          setNewOpen(false);
-                          await createPipeline();
+                          await createPipeline({ closeModal: true });
                         }}
                         disabled={creating}
                         className={clsx(
@@ -1181,7 +1278,14 @@ export function HomeClient({
                             : "bg-accent hover:bg-indigo-700 text-white",
                         )}
                       >
-                        {creating ? "Creating…" : "Create a Blank Pipeline"}
+                        {creating ? (
+                          <span className="inline-flex items-center gap-2">
+                            <LuLoaderCircle size={14} className="animate-spin" />
+                            Creating…
+                          </span>
+                        ) : (
+                          "Create a Blank Pipeline"
+                        )}
                       </button>
                     </div>
                   </div>
