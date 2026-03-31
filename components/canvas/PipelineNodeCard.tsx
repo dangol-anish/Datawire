@@ -32,8 +32,10 @@ export function PipelineNodeCard({ id, data, selected }: NodeProps<NodeData>) {
         ? "#22c55e"
         : "transparent";
 
+  const nodeColor = def?.color ?? "#6366f1";
+
   const borderColor = isSelected
-    ? "#6366f1"
+    ? nodeColor
     : hasError
       ? "#ef444440"
       : hasResult
@@ -48,7 +50,7 @@ export function PipelineNodeCard({ id, data, selected }: NodeProps<NodeData>) {
         background: "#161b27",
         border: `1.5px solid ${borderColor}`,
         boxShadow: isSelected
-          ? "0 0 0 2px #6366f130, 0 8px 32px #00000080"
+          ? `0 0 0 2px ${nodeColor}30, 0 8px 32px #00000080`
           : "0 4px 16px #00000060",
         transition: "border-color 0.15s, box-shadow 0.15s",
       }}
