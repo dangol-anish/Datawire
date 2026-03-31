@@ -1113,28 +1113,9 @@ export function HomeClient({
                 </button>
               </div>
 
-              <div className="p-5">
-                <div className="flex items-center justify-end gap-3">
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      setNewOpen(false);
-                      await createPipeline();
-                    }}
-                    disabled={creating}
-                    className={clsx(
-                      "h-8 px-3 rounded-lg text-sm font-semibold transition-colors",
-                      creating
-                        ? "bg-indigo-700/70 text-white/90 cursor-not-allowed"
-                        : "bg-accent hover:bg-indigo-700 text-white",
-                    )}
-                  >
-                    {creating ? "Creating…" : "Create a Blank Pipeline"}
-                  </button>
-                </div>
-
+              <div className="p-4">
                 {templates.length > 0 && (
-                  <div className="mt-6">
+                  <div className="">
                     <div className="flex items-center justify-between mb-3">
                       <h4 className="text-sm font-semibold text-slate-200">
                         Example templates
@@ -1183,6 +1164,25 @@ export function HomeClient({
                           </div>
                         </div>
                       ))}
+                    </div>
+
+                    <div className="flex items-center justify-end gap-3 mt-6">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          setNewOpen(false);
+                          await createPipeline();
+                        }}
+                        disabled={creating}
+                        className={clsx(
+                          "h-8 px-3 rounded-lg text-sm font-semibold transition-colors",
+                          creating
+                            ? "bg-indigo-700/70 text-white/90 cursor-not-allowed"
+                            : "bg-accent hover:bg-indigo-700 text-white",
+                        )}
+                      >
+                        {creating ? "Creating…" : "Create a Blank Pipeline"}
+                      </button>
                     </div>
                   </div>
                 )}
