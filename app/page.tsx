@@ -5,12 +5,15 @@ import { HomeClient } from "./HomeClient";
 import { PIPELINE_TEMPLATES } from "@/lib/pipelineTemplates";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { isUuid } from "@/lib/uuid";
+import { MarketingLanding } from "@/components/marketing/MarketingLanding";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   const session = await getServerSession(authOptions);
-  if (!session) redirect("/login");
+  if (!session) {
+    return <MarketingLanding />;
+  }
   if (!isUuid(session.user.id)) redirect("/login");
 
   const supabase = supabaseServer;

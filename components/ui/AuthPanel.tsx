@@ -111,7 +111,9 @@ export function AuthPanel() {
         throw new Error(msg);
       }
 
-      router.push(callbackUrl);
+      // Avoid a flash of the logged-out marketing landing page by doing a hard
+      // navigation after the session cookie is set.
+      window.location.assign(callbackUrl);
     } catch (err: any) {
       setError(typeof err?.message === "string" ? err.message : "Auth failed");
     } finally {
