@@ -9,7 +9,14 @@ import type { DataTable, NodeExecutionError } from "@/types";
 export type NodeStatus = "idle" | "running" | "complete" | "error";
 export type PipelineStatus = "idle" | "running" | "complete" | "error";
 
-type NodeResult = DataTable | NodeExecutionError;
+export type ExecutionTableResult = {
+  kind: "table";
+  table: DataTable;
+  totalRows: number;
+  isPreview: boolean;
+};
+
+type NodeResult = ExecutionTableResult | NodeExecutionError;
 
 interface ExecutionState {
   results: Record<string, NodeResult>;

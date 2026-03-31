@@ -19,6 +19,7 @@ import { recordRecentPipeline } from "@/lib/homeUiState";
 import { LuRedo2, LuUndo2, LuWorkflow } from "react-icons/lu";
 import { useConfirm } from "@/components/ui/ConfirmProvider";
 import { useToast } from "@/components/ui/ToastProvider";
+import { getWorker, terminateWorker } from "@/worker/workerBridge";
 
 interface Pipeline {
   id: string;
@@ -253,19 +254,23 @@ export function EditorClient({ pipeline, collabRoom }: Props) {
 
   // Spin up the Web Worker once
   useEffect(() => {
-    workerRef.current = new Worker(
-      new URL("@/worker/executionWorker.ts", import.meta.url),
-    );
+    const w = getWorker();
+    workerRef.current = w;
 
-    workerRef.current.onmessage = (event) => {
-      const msg = event.data;
+    const onMessage = (event: MessageEvent<any>) => {
+      const msg = event.data as any;
       switch (msg.type) {
         case "NODE_RUNNING":
           setNodeStatus(msg.nodeId, "running");
           break;
         case "NODE_COMPLETE":
           setNodeStatus(msg.nodeId, "complete");
-          setResult(msg.nodeId, msg.result);
+          setResult(msg.nodeId, {
+            kind: "table",
+            table: msg.result,
+            totalRows: msg.totalRows ?? (msg.result?.rows?.length ?? 0),
+            isPreview: Boolean(msg.isPreview),
+          });
           break;
         case "NODE_ERROR":
           setNodeStatus(msg.nodeId, "error");
@@ -280,11 +285,17 @@ export function EditorClient({ pipeline, collabRoom }: Props) {
         case "RUN_CANCELLED":
           setPipelineStatus("idle");
           break;
+        case "RESULT_PAGE":
+          // Handled by ResultsModal (it attaches its own listener).
+          break;
       }
     };
 
+    w.addEventListener("message", onMessage as any);
+
     return () => {
-      workerRef.current?.terminate();
+      w.removeEventListener("message", onMessage as any);
+      terminateWorker();
     };
   }, [setNodeStatus, setResult, setPipelineStatus]);
 

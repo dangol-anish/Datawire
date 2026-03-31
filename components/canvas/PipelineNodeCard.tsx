@@ -6,6 +6,8 @@ import { useGraphStore } from "@/store/graphStore";
 import { useExecutionStore } from "@/store/executionStore";
 import { NODE_REGISTRY } from "@/nodes/index";
 import { isExecutionError } from "@/types";
+import type { ExecutionTableResult } from "@/store/executionStore";
+import { LuCircleCheck, LuCircleX, LuLoaderCircle } from "react-icons/lu";
 
 interface NodeData {
   type: string;
@@ -21,16 +23,10 @@ export function PipelineNodeCard({ id, data, selected }: NodeProps<NodeData>) {
   const openResultsModal = useExecutionStore((s) => s.openResultsModal);
 
   const isSelected = selected || selectedNodeId === id;
-  const hasError = result && isExecutionError(result);
-  const hasResult = result && !isExecutionError(result);
-
-  const statusColor = hasError
-    ? "#ef4444"
-    : status === "running"
-      ? "#f59e0b"
-      : hasResult
-        ? "#22c55e"
-        : "transparent";
+  const hasError = result && isExecutionError(result as any);
+  const hasResult = result && !isExecutionError(result as any);
+  const tableResult: ExecutionTableResult | null =
+    hasResult && (result as any)?.kind === "table" ? ((result as any) as any) : null;
 
   const nodeColor = def?.color ?? "#6366f1";
 
@@ -63,32 +59,41 @@ export function PipelineNodeCard({ id, data, selected }: NodeProps<NodeData>) {
 
       {/* Header */}
       <div className="flex items-center gap-2 px-3 py-2">
-        <div
-          className="w-2 h-2 rounded-full flex-shrink-0"
-          style={{ background: statusColor }}
-        />
         <span
           className="text-xs font-semibold uppercase tracking-widest"
           style={{ color: def?.color ?? "#94a3b8", letterSpacing: "0.12em" }}
         >
           {data.type}
         </span>
+        <div className="flex-1" />
+        {status === "running" ? (
+          <LuLoaderCircle
+            size={16}
+            className="text-amber-400 animate-spin"
+            aria-label="Running"
+          />
+        ) : hasError ? (
+          <LuCircleX size={16} className="text-red-400" aria-label="Failed" />
+        ) : hasResult ? (
+          <LuCircleCheck
+            size={16}
+            className="text-green-400"
+            aria-label="Succeeded"
+          />
+        ) : null}
       </div>
 
-      {/* Label */}
-      <div className="px-3 pb-2">
-        <p className="text-sm font-medium text-white leading-tight">
-          {data.label}
-        </p>
-        {data.config && Object.keys(data.config).length > 0 && (
-          <p className="text-xs text-slate-500 mt-0.5 truncate max-w-[180px]">
+      {/* Config summary */}
+      {data.config && Object.keys(data.config).length > 0 && (
+        <div className="px-3 pb-2">
+          <p className="text-xs text-slate-500 truncate max-w-[180px]">
             {Object.entries(data.config)
               .filter(([, v]) => v)
               .map(([k, v]) => `${k}: ${v}`)
               .join(" · ")}
           </p>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Execution result summary */}
       {hasResult && (
@@ -98,8 +103,8 @@ export function PipelineNodeCard({ id, data, selected }: NodeProps<NodeData>) {
           title="Open results"
         >
           <p className="text-xs text-green-400">
-            ✓ {(result as any).rows?.length ?? 0} rows ·{" "}
-            {(result as any).columns?.length ?? 0} cols · View
+            ✓ {(tableResult?.totalRows ?? 0)} rows ·{" "}
+            {(tableResult?.table.columns.length ?? 0)} cols · View
           </p>
         </button>
       )}
