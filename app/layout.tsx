@@ -3,7 +3,7 @@ import "./globals.css";
 import { Providers } from "./providers";
 
 export const metadata: Metadata = {
-  title: "Pipeline Builder",
+  title: "Datawire",
   description: "Visual data pipeline editor",
 };
 
