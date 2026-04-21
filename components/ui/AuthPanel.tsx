@@ -14,6 +14,7 @@ import {
   LuUser,
   LuWorkflow,
 } from "react-icons/lu";
+import { useToast } from "./ToastProvider";
 
 async function safeJson(res: Response) {
   try {
@@ -53,6 +54,8 @@ export function AuthPanel() {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const toast = useToast();
 
   useEffect(() => {
     const msg = friendlyAuthError(errorParam);
@@ -109,6 +112,13 @@ export function AuthPanel() {
       if ((resp as any)?.error) {
         const msg = friendlyAuthError((resp as any)?.error) ?? (resp as any).error;
         throw new Error(msg);
+      }
+
+      // Show success toast
+      if (mode === "signup") {
+        toast.success("Account created successfully! Welcome to Datawire.");
+      } else {
+        toast.success("Welcome back! You're now signed in.");
       }
 
       // Avoid a flash of the logged-out marketing landing page by doing a hard
